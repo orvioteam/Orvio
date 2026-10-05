@@ -3,7 +3,7 @@ import { ArrowRight, BriefcaseBusiness, CalendarDays, Users } from "lucide-react
 
 const features = [
   { icon: CalendarDays, title: "Aufträge planen", text: "Termine, Zeiten und Einsatzorte in einer klaren Tagesübersicht bündeln." },
-  { icon: Users, title: "Mitarbeitende einteilen", text: "Team und Zuständigkeiten für jeden Auftrag einfach im Blick behalten." },
+  { icon: Users, title: "Teams einteilen", text: "Teams und Zuständigkeiten für jeden Auftrag einfach im Blick behalten." },
   { icon: BriefcaseBusiness, title: "Kunden verwalten", text: "Kontaktdaten und Einsatzinformationen zentral auffinden." },
 ];
 
@@ -29,12 +29,12 @@ export default function HomePage() {
 
       <section className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20 lg:py-28">
         <div className="max-w-2xl">
-          <p className="mb-5 text-xs font-semibold uppercase tracking-[0.16em] text-[#176b4a]">Einsatzplanung für Reinigungsunternehmen</p>
+          <p className="mb-5 text-xs font-semibold uppercase tracking-[0.16em] text-[#176b4a]">Einsatzplanung für mobile Teams</p>
           <h1 className="text-4xl font-semibold leading-[1.12] tracking-tight text-slate-900 sm:text-5xl lg:text-[3.7rem]">
             Aufträge einfach planen.
           </h1>
           <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-            CleanFlow hilft Reinigungsunternehmen, Kunden, Mitarbeitende und Einsätze an einem Ort zu organisieren.
+            CleanFlow bringt Kunden, Mitarbeitende und Einsätze an einem Ort zusammen – einfach, übersichtlich und ohne unnötigen Aufwand.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link href="/register" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[#176b4a] px-5 text-sm font-medium text-white hover:bg-[#11563b]">
@@ -44,6 +44,7 @@ export default function HomePage() {
               Anmelden
             </Link>
           </div>
+          <p className="mt-4 text-xs leading-5 text-slate-500">Entwickelt für Reinigungsunternehmen – gemacht für Teams mit täglichen Einsätzen.</p>
         </div>
 
         <div aria-label="Auftragsübersicht mit Einsatz-, Kunden- und Teamdaten" className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
@@ -58,7 +59,7 @@ export default function HomePage() {
             {[
               { icon: CalendarDays, title: "Einsätze nach Zeit", detail: "Datum und Zeitfenster im Überblick" },
               { icon: BriefcaseBusiness, title: "Kunden und Einsatzorte", detail: "Wichtige Angaben direkt beim Auftrag" },
-              { icon: Users, title: "Zuständiges Team", detail: "Mitarbeitende einfach zuordnen" },
+              { icon: Users, title: "Zuständiges Team", detail: "Teams einfach zuordnen" },
             ].map(({ icon: Icon, title, detail }) => (
               <div key={title} className="flex items-center gap-4 py-5">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#f4f5f1] text-[#176b4a]">
@@ -78,7 +79,7 @@ export default function HomePage() {
       <section id="funktionen" className="border-y border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 sm:py-16">
           <div className="max-w-xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#176b4a]">Weniger suchen. Klarer planen.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#176b4a]">WENIGER SUCHEN. KLARER PLANEN.</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Das Wesentliche für Ihren Arbeitsalltag.</h2>
           </div>
           <div className="mt-9 grid gap-8 md:grid-cols-3 md:gap-10">
