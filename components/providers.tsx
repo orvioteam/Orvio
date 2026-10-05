@@ -9,7 +9,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getInitialState, persistState } from "@/lib/demo-data";
 import { supabase, hasSupabase } from "@/lib/supabase/client";
 import {
   type AppState,
@@ -24,15 +23,15 @@ import {
   type SignUpInput,
 } from "@/lib/types";
 
-const hashPassword = async (password: string) => {
-  if (typeof window === "undefined") {
-    return password;
-  }
-
-  const buffer = new TextEncoder().encode(password);
-  const digest = await window.crypto.subtle.digest("SHA-256", buffer);
-  const bytes = Array.from(new Uint8Array(digest));
-  return bytes.map((byte) => byte.toString(16).padStart(2, "0")).join("");
+const emptyState: AppState = {
+  organizations: [],
+  organizationMembers: [],
+  customers: [],
+  employees: [],
+  jobs: [],
+  users: [],
+  currentUserId: null,
+  activeOrganizationId: null,
 };
 
 const mapOrganizationRow = (row: Record<string, unknown>): Organization => ({
@@ -41,7 +40,7 @@ const mapOrganizationRow = (row: Record<string, unknown>): Organization => ({
   phone: String(row.phone ?? ""),
   email: String(row.email ?? ""),
   address: String(row.address ?? ""),
-  createdAt: String(row.created_at ?? new Date().toISOString()),
+  createdAt: String(row.created_at ?? ""),
 });
 
 const mapCustomerRow = (row: Record<string, unknown>): Customer => ({
@@ -55,8 +54,8 @@ const mapCustomerRow = (row: Record<string, unknown>): Customer => ({
   postalCode: String(row.postal_code ?? ""),
   city: String(row.city ?? ""),
   notes: String(row.notes ?? ""),
-  createdAt: String(row.created_at ?? new Date().toISOString()),
-  updatedAt: String(row.updated_at ?? new Date().toISOString()),
+  createdAt: String(row.created_at ?? ""),
+  updatedAt: String(row.updated_at ?? ""),
 });
 
 const mapEmployeeRow = (row: Record<string, unknown>): Employee => ({
@@ -67,10 +66,10 @@ const mapEmployeeRow = (row: Record<string, unknown>): Employee => ({
   email: String(row.email ?? ""),
   phone: String(row.phone ?? ""),
   color: String(row.color ?? "#10b981"),
-  active: Boolean(row.active),
+  active: row.active === true,
   notes: String(row.notes ?? ""),
-  createdAt: String(row.created_at ?? new Date().toISOString()),
-  updatedAt: String(row.updated_at ?? new Date().toISOString()),
+  createdAt: String(row.created_at ?? ""),
+  updatedAt: String(row.updated_at ?? ""),
 });
 
 const mapJobRow = (row: Record<string, unknown>): Job => ({
@@ -80,14 +79,14 @@ const mapJobRow = (row: Record<string, unknown>): Job => ({
   employeeId: row.employee_id ? String(row.employee_id) : null,
   title: String(row.title ?? ""),
   description: String(row.description ?? ""),
-  date: String(row.date ?? new Date().toISOString().slice(0, 10)),
-  startTime: String(row.start_time ?? "08:00"),
-  endTime: String(row.end_time ?? "10:00"),
-  status: (row.status as Job["status"]) ?? "scheduled",
+  date: String(row.date ?? ""),
+  startTime: String(row.start_time ?? ""),
+  endTime: String(row.end_time ?? ""),
+  status: row.status as Job["status"],
   address: String(row.address ?? ""),
   notes: String(row.notes ?? ""),
-  createdAt: String(row.created_at ?? new Date().toISOString()),
-  updatedAt: String(row.updated_at ?? new Date().toISOString()),
+  createdAt: String(row.created_at ?? ""),
+  updatedAt: String(row.updated_at ?? ""),
 });
 
 type SupabaseUserLike = {
@@ -96,125 +95,209 @@ type SupabaseUserLike = {
   user_metadata?: {
     first_name?: string;
     last_name?: string;
+    organization_name?: string;
   };
 };
 
-const mapSupabaseUserToRegisteredUser = (userId: string, email: string | null | undefined, organizationId: string | null, profile?: { first_name?: string; last_name?: string }) => ({
-  id: userId,
-  email: email ?? "",
-  firstName: profile?.first_name ?? "Benutzer",
-  lastName: profile?.last_name ?? "",
-  organizationId: organizationId ?? "",
+const mapSupabaseUser = (
+  user: SupabaseUserLike,
+  organizationId: string,
+): RegisteredUser => ({
+  id: user.id,
+  email: user.email ?? "",
+  firstName: user.user_metadata?.first_name ?? "Benutzer",
+  lastName: user.user_metadata?.last_name ?? "",
+  organizationId,
   passwordHash: "",
-} satisfies RegisteredUser);
+});
+
+const errorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : "Ein unerwarteter Fehler ist aufgetreten.";
 
 interface AppContextValue {
   state: AppState;
   currentUser: RegisteredUser | null;
   activeOrganization: Organization | null;
   isReady: boolean;
+  appError: string | null;
+  refreshData: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<RegisteredUser>;
   signUp: (input: SignUpInput) => Promise<RegisteredUser>;
-  signOut: () => Promise<void> | void;
-  saveCustomer: (input: CustomerFormInput, customerId?: string) => Customer;
-  deleteCustomer: (customerId: string) => void;
-  saveEmployee: (input: EmployeeFormInput, employeeId?: string) => Employee;
-  deleteEmployee: (employeeId: string) => void;
-  saveJob: (input: JobFormInput, jobId?: string) => Job;
-  deleteJob: (jobId: string) => void;
-  updateOrganization: (name: string, phone: string, email: string, address: string) => Organization;
+  signOut: () => Promise<void>;
+  saveCustomer: (input: CustomerFormInput, customerId?: string) => Promise<Customer>;
+  deleteCustomer: (customerId: string) => Promise<void>;
+  saveEmployee: (input: EmployeeFormInput, employeeId?: string) => Promise<Employee>;
+  deleteEmployee: (employeeId: string) => Promise<void>;
+  saveJob: (input: JobFormInput, jobId?: string) => Promise<Job>;
+  deleteJob: (jobId: string) => Promise<void>;
+  updateOrganization: (name: string, phone: string, email: string, address: string) => Promise<Organization>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AppState>(() => getInitialState());
-  const [isReady, setIsReady] = useState(() => !supabase);
-  const [supabaseUser, setSupabaseUser] = useState<null | SupabaseUserLike>(null);
+  if (!hasSupabase) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
+        <section className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <h1 className="text-xl font-semibold text-slate-900">Supabase-Konfiguration fehlt</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            CleanFlow benötigt eine echte Supabase-Projekt-URL und einen Publishable Key.
+            Tragen Sie <code>NEXT_PUBLIC_SUPABASE_URL</code> und{" "}
+            <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> in <code>.env.local</code> ein und
+            starten Sie den Entwicklungsserver neu. Es werden keine Demo-Daten angezeigt.
+          </p>
+        </section>
+      </main>
+    );
+  }
+
+  return <ConfiguredAppProvider>{children}</ConfiguredAppProvider>;
+}
+
+function ConfiguredAppProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<AppState>(emptyState);
+  const [isReady, setIsReady] = useState(false);
+  const [supabaseUser, setSupabaseUser] = useState<SupabaseUserLike | null>(null);
+  const [appError, setAppError] = useState<string | null>(null);
+
+  const requireClient = useCallback(() => {
+    if (!supabase) throw new Error("Supabase ist nicht konfiguriert.");
+    return supabase;
+  }, []);
 
   const hydrateSupabaseState = useCallback(async (user: SupabaseUserLike) => {
-    const client = supabase;
-    if (!client) return;
-
-    const { data: memberData, error: memberError } = await client
+    const client = requireClient();
+    const { data: membership, error: memberError } = await client
       .from("organization_members")
-      .select("organization_id, role")
+      .select("id, organization_id, role, created_at")
       .eq("user_id", user.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle();
 
-    if (memberError) {
-      console.error("Supabase member lookup failed:", memberError.message);
-      return;
-    }
-
+    if (memberError) throw new Error(`Mitgliedschaft konnte nicht geladen werden: ${memberError.message}`);
+    let memberData = membership;
     if (!memberData) {
-      setState((previous) => ({ ...previous, currentUserId: null, activeOrganizationId: null }));
-      setSupabaseUser(user);
-      return;
+      const organizationName = user.user_metadata?.organization_name?.trim();
+      if (!organizationName) {
+        setSupabaseUser(user);
+        setState({ ...emptyState, users: [mapSupabaseUser(user, "")], currentUserId: user.id });
+        throw new Error("Für dieses Benutzerkonto ist noch keine Organisation eingerichtet.");
+      }
+
+      const { data: existingOrganization, error: lookupError } = await client
+        .from("organizations")
+        .select("*")
+        .eq("created_by", user.id)
+        .maybeSingle();
+      if (lookupError) throw new Error(`Organisation konnte nicht geprüft werden: ${lookupError.message}`);
+
+      let organization = existingOrganization;
+      if (!organization) {
+        const { data, error } = await client
+          .from("organizations")
+          .insert({ name: organizationName, email: user.email ?? "", created_by: user.id })
+          .select()
+          .single();
+        if (error) throw new Error(`Organisation konnte nicht erstellt werden: ${error.message}`);
+        organization = data;
+      }
+
+      const { data: newMembership, error: createMemberError } = await client
+        .from("organization_members")
+        .insert({ organization_id: organization.id, user_id: user.id, role: "owner" })
+        .select("id, organization_id, role, created_at")
+        .single();
+      if (createMemberError) throw new Error(`Mitgliedschaft konnte nicht angelegt werden: ${createMemberError.message}`);
+      memberData = newMembership;
     }
 
     const organizationId = String(memberData.organization_id);
-
-    const [{ data: organizationRows }, { data: customerRows }, { data: employeeRows }, { data: jobRows }] = await Promise.all([
-      client.from("organizations").select("*").eq("id", organizationId).maybeSingle(),
-      client.from("customers").select("*").eq("organization_id", organizationId),
-      client.from("employees").select("*").eq("organization_id", organizationId),
-      client.from("jobs").select("*").eq("organization_id", organizationId),
+    const [organizationResult, customersResult, employeesResult, jobsResult] = await Promise.all([
+      client.from("organizations").select("*").eq("id", organizationId).single(),
+      client.from("customers").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
+      client.from("employees").select("*").eq("organization_id", organizationId).order("last_name", { ascending: true }),
+      client.from("jobs").select("*").eq("organization_id", organizationId).order("date", { ascending: true }).order("start_time", { ascending: true }),
     ]);
 
+    if (organizationResult.error) throw new Error(`Organisation konnte nicht geladen werden: ${organizationResult.error.message}`);
+    if (customersResult.error) throw new Error(`Kunden konnten nicht geladen werden: ${customersResult.error.message}`);
+    if (employeesResult.error) throw new Error(`Mitarbeiter konnten nicht geladen werden: ${employeesResult.error.message}`);
+    if (jobsResult.error) throw new Error(`Aufträge konnten nicht geladen werden: ${jobsResult.error.message}`);
+
+    const organization = mapOrganizationRow(organizationResult.data as Record<string, unknown>);
+    const registeredUser = mapSupabaseUser(user, organizationId);
     setSupabaseUser(user);
     setState({
-      organizations: organizationRows ? [mapOrganizationRow(organizationRows as Record<string, unknown>)] : [],
+      organizations: [organization],
       organizationMembers: [{
-        id: `member-${user.id}`,
+        id: String(memberData.id),
         organizationId,
         userId: user.id,
-        role: (memberData.role as "owner" | "manager" | "admin") ?? "owner",
-        createdAt: new Date().toISOString(),
+        role: memberData.role as "owner" | "manager" | "admin",
+        createdAt: String(memberData.created_at ?? ""),
       }],
-      customers: (customerRows ?? []).map((row) => mapCustomerRow(row as Record<string, unknown>)),
-      employees: (employeeRows ?? []).map((row) => mapEmployeeRow(row as Record<string, unknown>)),
-      jobs: (jobRows ?? []).map((row) => mapJobRow(row as Record<string, unknown>)),
-      users: [mapSupabaseUserToRegisteredUser(user.id, user.email, organizationId, user.user_metadata)],
+      customers: (customersResult.data ?? []).map((row) => mapCustomerRow(row as Record<string, unknown>)),
+      employees: (employeesResult.data ?? []).map((row) => mapEmployeeRow(row as Record<string, unknown>)),
+      jobs: (jobsResult.data ?? []).map((row) => mapJobRow(row as Record<string, unknown>)),
+      users: [registeredUser],
       currentUserId: user.id,
       activeOrganizationId: organizationId,
     });
-  }, []);
+    setAppError(null);
+    return registeredUser;
+  }, [requireClient]);
+
+  const refreshData = useCallback(async () => {
+    setAppError(null);
+    try {
+      const client = requireClient();
+      const { data, error } = await client.auth.getUser();
+      if (error) throw new Error(`Sitzung konnte nicht geprüft werden: ${error.message}`);
+      if (!data.user) {
+        setState(emptyState);
+        setSupabaseUser(null);
+        return;
+      }
+      await hydrateSupabaseState(data.user);
+    } catch (error) {
+      setState(emptyState);
+      setSupabaseUser(null);
+      setAppError(errorMessage(error));
+    }
+  }, [hydrateSupabaseState, requireClient]);
 
   useEffect(() => {
-    if (!hasSupabase || !supabase) {
-      return;
-    }
-
+    if (!supabase) return;
+    const client = supabase;
     let isMounted = true;
 
     const initialize = async () => {
-      const client = supabase;
-      if (!client) return;
-
-      const { data: { session } } = await client.auth.getSession();
-      if (!isMounted) return;
-
-      if (session?.user) {
-        await hydrateSupabaseState(session.user);
+      try {
+        const { data, error } = await client.auth.getSession();
+        if (error) throw new Error(`Sitzung konnte nicht geladen werden: ${error.message}`);
+        if (data.session?.user) await hydrateSupabaseState(data.session.user);
+      } catch (error) {
+        if (isMounted) {
+          setAppError(errorMessage(error));
+          setState(emptyState);
+          setSupabaseUser(null);
+        }
+      } finally {
+        if (isMounted) setIsReady(true);
       }
-
-      setIsReady(true);
     };
 
     void initialize();
 
-    const client = supabase;
-    if (!client) {
-      return;
-    }
-
-    const { data: authListener } = client.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        void hydrateSupabaseState(session.user);
-      } else {
+    const { data: authListener } = client.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || !session?.user) {
+        setState(emptyState);
         setSupabaseUser(null);
-        setState((previous) => ({ ...previous, currentUserId: null, activeOrganizationId: null }));
+        setAppError(null);
+      } else if (event === "USER_UPDATED") {
+        void hydrateSupabaseState(session.user).catch((error: unknown) => setAppError(errorMessage(error)));
       }
     });
 
@@ -224,69 +307,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [hydrateSupabaseState]);
 
-  useEffect(() => {
-    if (!hasSupabase || !supabase) {
-      persistState(state);
-    }
-  }, [state]);
-
-  const localCurrentUser =
-    state.currentUserId === null
-      ? null
-      : state.users.find((user) => user.id === state.currentUserId) ?? null;
-
   const currentUser = supabaseUser
-    ? mapSupabaseUserToRegisteredUser(
-        supabaseUser.id,
-        supabaseUser.email,
-        state.activeOrganizationId,
-        supabaseUser.user_metadata,
-      )
-    : localCurrentUser;
+    ? mapSupabaseUser(supabaseUser, state.activeOrganizationId ?? "")
+    : null;
+  const activeOrganization = state.organizations.find(
+    (organization) => organization.id === state.activeOrganizationId,
+  ) ?? null;
 
-  const activeOrganization =
-    state.activeOrganizationId === null
-      ? null
-      : state.organizations.find((organization) => organization.id === state.activeOrganizationId) ?? null;
-
-  const signIn = useCallback(
-    async (email: string, password: string) => {
-      const client = supabase;
-      if (client) {
-        const { data, error } = await client.auth.signInWithPassword({ email, password });
-        if (error) {
-          throw new Error(error.message || "E-Mail oder Passwort ist ungültig.");
-        }
-
-        await hydrateSupabaseState(data.user);
-        return mapSupabaseUserToRegisteredUser(
-          data.user.id,
-          data.user.email,
-          state.activeOrganizationId,
-          data.user.user_metadata,
-        );
-      }
-
-      const normalizedEmail = email.trim().toLowerCase();
-      const passwordHash = await hashPassword(password);
-      const user = state.users.find(
-        (entry) =>
-          entry.email.toLowerCase() === normalizedEmail && entry.passwordHash === passwordHash,
-      );
-
-      if (!user) {
-        throw new Error("E-Mail oder Passwort ist ungültig.");
-      }
-
-      setState((previous) => ({ ...previous, currentUserId: user.id, activeOrganizationId: user.organizationId }));
+  const signIn = useCallback(async (email: string, password: string) => {
+    const client = requireClient();
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message || "E-Mail oder Passwort ist ungültig.");
+    try {
+      const user = await hydrateSupabaseState(data.user);
+      setAppError(null);
       return user;
-    },
-    [hydrateSupabaseState, state.activeOrganizationId, state.users],
-  );
+    } catch (hydrateError) {
+      setAppError(errorMessage(hydrateError));
+      throw hydrateError;
+    }
+  }, [hydrateSupabaseState, requireClient]);
 
   const signUp = useCallback(async (input: SignUpInput) => {
-    const client = supabase;
-    if (client) {
+    const client = requireClient();
+    try {
       const { data, error } = await client.auth.signUp({
         email: input.email,
         password: input.password,
@@ -299,444 +343,211 @@ export function AppProvider({ children }: { children: ReactNode }) {
         },
       });
 
-      if (error) {
-        throw new Error(error.message || "Registrierung fehlgeschlagen.");
+      if (error) throw error;
+      if (!data.user) throw new Error("Supabase hat kein Benutzerkonto zurückgegeben.");
+      if (!data.session) {
+        throw new Error("Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse und melden Sie sich danach an. Ihre Organisation wird beim ersten Login eingerichtet.");
       }
 
-      if (data.user) {
-        const { data: organizationData, error: organizationError } = await client
-          .from("organizations")
-          .insert({
-            name: input.organizationName,
-            phone: "",
-            email: input.email,
-            address: "",
-          })
-          .select()
-          .single();
+      const { data: authenticatedData, error: identityError } = await client.auth.getUser();
+      if (identityError) throw identityError;
+      if (authenticatedData.user?.id !== data.user.id) throw new Error("Der angemeldete Benutzer stimmt nicht mit dem neuen Konto überein.");
 
-        if (organizationError) {
-          throw new Error(organizationError.message || "Organisation konnte nicht erstellt werden.");
-        }
+      const { data: organizationData, error: organizationError } = await client
+        .from("organizations")
+        .insert({
+          name: input.organizationName,
+          phone: "",
+          email: input.email,
+          address: "",
+          created_by: authenticatedData.user.id,
+        })
+        .select()
+        .single();
 
-        const { error: memberError } = await client.from("organization_members").insert({
-          organization_id: organizationData.id,
-          user_id: data.user.id,
-          role: "owner",
-        });
+      if (organizationError) throw organizationError;
 
-        if (memberError) {
-          throw new Error(memberError.message || "Mitglied konnte nicht angelegt werden.");
-        }
+      const { error: memberError } = await client.from("organization_members").insert({
+        organization_id: organizationData.id,
+        user_id: authenticatedData.user.id,
+        role: "owner",
+      });
+      if (memberError) throw memberError;
 
-        await hydrateSupabaseState(data.user);
-
-        return mapSupabaseUserToRegisteredUser(
-          data.user.id,
-          data.user.email,
-          organizationData.id,
-          data.user.user_metadata,
-        );
+      return await hydrateSupabaseState(data.user);
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith("Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse")) {
+        throw error;
       }
-
-      throw new Error("Registrierung fehlgeschlagen.");
+      console.error("CleanFlow registration could not be completed.", error);
+      throw new Error("Registrierung konnte nicht abgeschlossen werden.");
     }
-
-    const passwordHash = await hashPassword(input.password);
-    const organizationId = `org-${Math.random().toString(36).slice(2, 11)}`;
-    const organization: Organization = {
-      id: organizationId,
-      name: input.organizationName,
-      phone: "+41 44 000 00 00",
-      email: input.email,
-      address: "Noch nicht hinterlegt",
-      createdAt: new Date().toISOString(),
-    };
-    const userId = `user-${Math.random().toString(36).slice(2, 11)}`;
-    const user: RegisteredUser = {
-      id: userId,
-      email: input.email,
-      firstName: input.firstName,
-      lastName: input.lastName,
-      organizationId,
-      passwordHash,
-    };
-
-    setState((previous) => ({
-      ...previous,
-      organizations: [...previous.organizations, organization],
-      organizationMembers: [
-        ...previous.organizationMembers,
-        {
-          id: `member-${userId}`,
-          organizationId,
-          userId,
-          role: "owner",
-          createdAt: new Date().toISOString(),
-        },
-      ],
-      users: [...previous.users, user],
-      currentUserId: userId,
-      activeOrganizationId: organizationId,
-    }));
-
-    return user;
-  }, [hydrateSupabaseState]);
+  }, [hydrateSupabaseState, requireClient]);
 
   const signOut = useCallback(async () => {
-    const client = supabase;
-    if (client) {
-      const { error } = await client.auth.signOut();
-      if (error) {
-        throw new Error(error.message || "Abmeldung fehlgeschlagen.");
-      }
-      setSupabaseUser(null);
-      setState((previous) => ({ ...previous, currentUserId: null, activeOrganizationId: null }));
-      return;
-    }
+    const { error } = await requireClient().auth.signOut();
+    if (error) throw new Error(error.message || "Abmeldung fehlgeschlagen.");
+    setState(emptyState);
+    setSupabaseUser(null);
+  }, [requireClient]);
 
-    setState((previous) => ({ ...previous, currentUserId: null }));
-  }, []);
+  const requireOrganizationId = useCallback(() => {
+    if (!state.activeOrganizationId) throw new Error("Es ist keine aktive Organisation geladen.");
+    return state.activeOrganizationId;
+  }, [state.activeOrganizationId]);
 
-  const saveCustomer = useCallback((input: CustomerFormInput, customerId?: string) => {
-    const timestamp = new Date().toISOString();
-    const organizationId = state.activeOrganizationId ?? state.organizations[0]?.id ?? "org-demo";
+  const saveCustomer = useCallback(async (input: CustomerFormInput, customerId?: string) => {
+    const client = requireClient();
+    const organizationId = requireOrganizationId();
+    const payload = {
+      organization_id: organizationId,
+      name: input.name.trim(),
+      company_name: input.companyName.trim() || null,
+      email: input.email.trim() || null,
+      phone: input.phone.trim() || null,
+      address: input.address.trim() || null,
+      postal_code: input.postalCode.trim() || null,
+      city: input.city.trim() || null,
+      notes: input.notes.trim() || null,
+    };
+    const query = customerId
+      ? client.from("customers").update(payload).eq("id", customerId).eq("organization_id", organizationId)
+      : client.from("customers").insert(payload);
+    const { data, error } = await query.select().single();
+    if (error) throw new Error(`Kunde konnte nicht gespeichert werden: ${error.message}`);
+    const customer = mapCustomerRow(data as Record<string, unknown>);
+    setState((previous) => ({
+      ...previous,
+      customers: customerId
+        ? previous.customers.map((item) => item.id === customerId ? customer : item)
+        : [customer, ...previous.customers],
+    }));
+    return customer;
+  }, [requireClient, requireOrganizationId]);
 
-    let saved!: Customer;
-
-    if (supabase && state.activeOrganizationId) {
-      const payload = {
-        id: customerId,
-        organization_id: state.activeOrganizationId,
-        name: input.name,
-        company_name: input.companyName,
-        email: input.email,
-        phone: input.phone,
-        address: input.address,
-        postal_code: input.postalCode,
-        city: input.city,
-        notes: input.notes,
-      };
-
-      const query = customerId
-        ? supabase.from("customers").update(payload).eq("id", customerId).select().single()
-        : supabase.from("customers").insert(payload).select().single();
-
-      void query.then(({ data, error }) => {
-        if (error) {
-          console.error("Supabase customer save failed:", error.message);
-          return;
-        }
-
-        const mapped = mapCustomerRow(data as Record<string, unknown>);
-        setState((previous) => ({
-          ...previous,
-          customers: customerId
-            ? previous.customers.map((customer) => (customer.id === customerId ? mapped : customer))
-            : [...previous.customers, mapped],
-        }));
-      });
-    }
-
-    setState((previous) => {
-      const existing = previous.customers.find((customer) => customer.id === customerId);
-
-      if (existing) {
-        const updated: Customer = {
-          ...existing,
-          ...input,
-          organizationId: previous.activeOrganizationId ?? previous.organizations[0]?.id ?? organizationId,
-          updatedAt: timestamp,
-        };
-
-        saved = updated;
-        return {
-          ...previous,
-          customers: previous.customers.map((customer) =>
-            customer.id === customerId ? updated : customer,
-          ),
-        };
-      }
-
-      const customer: Customer = {
-        id: `cust-${Math.random().toString(36).slice(2, 11)}`,
-        organizationId,
-        name: input.name,
-        companyName: input.companyName,
-        email: input.email,
-        phone: input.phone,
-        address: input.address,
-        postalCode: input.postalCode,
-        city: input.city,
-        notes: input.notes,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
-
-      saved = customer;
-      return {
-        ...previous,
-        customers: [...previous.customers, customer],
-      };
-    });
-
-    return saved as Customer;
-  }, [state.activeOrganizationId, state.organizations]);
-
-  const deleteCustomer = useCallback((customerId: string) => {
-    if (supabase && state.activeOrganizationId) {
-      void supabase.from("customers").delete().eq("id", customerId).then(({ error }) => {
-        if (error) {
-          console.error("Supabase customer delete failed:", error.message);
-        }
-      });
-    }
-
+  const deleteCustomer = useCallback(async (customerId: string) => {
+    const client = requireClient();
+    const organizationId = requireOrganizationId();
+    const { data, error } = await client.from("customers").delete()
+      .eq("id", customerId).eq("organization_id", organizationId).select("id").maybeSingle();
+    if (error) throw new Error(`Kunde konnte nicht gelöscht werden: ${error.message}`);
+    if (!data) throw new Error("Der Kunde wurde nicht gefunden oder ist bereits gelöscht.");
     setState((previous) => ({
       ...previous,
       customers: previous.customers.filter((customer) => customer.id !== customerId),
     }));
-  }, [state.activeOrganizationId]);
+  }, [requireClient, requireOrganizationId]);
 
-  const saveEmployee = useCallback((input: EmployeeFormInput, employeeId?: string) => {
-    const timestamp = new Date().toISOString();
-    const organizationId = state.activeOrganizationId ?? state.organizations[0]?.id ?? "org-demo";
+  const saveEmployee = useCallback(async (input: EmployeeFormInput, employeeId?: string) => {
+    const client = requireClient();
+    const organizationId = requireOrganizationId();
+    const payload = {
+      organization_id: organizationId,
+      first_name: input.firstName.trim(),
+      last_name: input.lastName.trim(),
+      email: input.email.trim() || null,
+      phone: input.phone.trim() || null,
+      color: input.color,
+      active: input.active,
+      notes: input.notes.trim() || null,
+    };
+    const query = employeeId
+      ? client.from("employees").update(payload).eq("id", employeeId).eq("organization_id", organizationId)
+      : client.from("employees").insert(payload);
+    const { data, error } = await query.select().single();
+    if (error) throw new Error(`Mitarbeiter konnte nicht gespeichert werden: ${error.message}`);
+    const employee = mapEmployeeRow(data as Record<string, unknown>);
+    setState((previous) => ({
+      ...previous,
+      employees: employeeId
+        ? previous.employees.map((item) => item.id === employeeId ? employee : item)
+        : [...previous.employees, employee],
+    }));
+    return employee;
+  }, [requireClient, requireOrganizationId]);
 
-    let saved!: Employee;
-
-    if (supabase && state.activeOrganizationId) {
-      const payload = {
-        id: employeeId,
-        organization_id: state.activeOrganizationId,
-        first_name: input.firstName,
-        last_name: input.lastName,
-        email: input.email,
-        phone: input.phone,
-        color: input.color,
-        active: input.active,
-        notes: input.notes,
-      };
-
-      const query = employeeId
-        ? supabase.from("employees").update(payload).eq("id", employeeId).select().single()
-        : supabase.from("employees").insert(payload).select().single();
-
-      void query.then(({ data, error }) => {
-        if (error) {
-          console.error("Supabase employee save failed:", error.message);
-          return;
-        }
-
-        const mapped = mapEmployeeRow(data as Record<string, unknown>);
-        setState((previous) => ({
-          ...previous,
-          employees: employeeId
-            ? previous.employees.map((employee) => (employee.id === employeeId ? mapped : employee))
-            : [...previous.employees, mapped],
-        }));
-      });
-    }
-
-    setState((previous) => {
-      const existing = previous.employees.find((employee) => employee.id === employeeId);
-
-      if (existing) {
-        const updated: Employee = {
-          ...existing,
-          ...input,
-          organizationId: previous.activeOrganizationId ?? previous.organizations[0]?.id ?? organizationId,
-          updatedAt: timestamp,
-        };
-
-        saved = updated;
-        return {
-          ...previous,
-          employees: previous.employees.map((employee) =>
-            employee.id === employeeId ? updated : employee,
-          ),
-        };
-      }
-
-      const employee: Employee = {
-        id: `emp-${Math.random().toString(36).slice(2, 11)}`,
-        organizationId,
-        firstName: input.firstName,
-        lastName: input.lastName,
-        email: input.email,
-        phone: input.phone,
-        color: input.color,
-        active: input.active,
-        notes: input.notes,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
-
-      saved = employee;
-      return {
-        ...previous,
-        employees: [...previous.employees, employee],
-      };
-    });
-
-    return saved as Employee;
-  }, [state.activeOrganizationId, state.organizations]);
-
-  const deleteEmployee = useCallback((employeeId: string) => {
-    if (supabase && state.activeOrganizationId) {
-      void supabase.from("employees").delete().eq("id", employeeId).then(({ error }) => {
-        if (error) {
-          console.error("Supabase employee delete failed:", error.message);
-        }
-      });
-    }
-
+  const deleteEmployee = useCallback(async (employeeId: string) => {
+    const client = requireClient();
+    const organizationId = requireOrganizationId();
+    const { data, error } = await client.from("employees").delete()
+      .eq("id", employeeId).eq("organization_id", organizationId).select("id").maybeSingle();
+    if (error) throw new Error(`Mitarbeiter konnte nicht gelöscht werden: ${error.message}`);
+    if (!data) throw new Error("Der Mitarbeiter wurde nicht gefunden oder ist bereits gelöscht.");
     setState((previous) => ({
       ...previous,
       employees: previous.employees.filter((employee) => employee.id !== employeeId),
+      jobs: previous.jobs.map((job) => job.employeeId === employeeId ? { ...job, employeeId: null } : job),
     }));
-  }, [state.activeOrganizationId]);
+  }, [requireClient, requireOrganizationId]);
 
-  const saveJob = useCallback((input: JobFormInput, jobId?: string) => {
-    const timestamp = new Date().toISOString();
-    const organizationId = state.activeOrganizationId ?? state.organizations[0]?.id ?? "org-demo";
+  const saveJob = useCallback(async (input: JobFormInput, jobId?: string) => {
+    const client = requireClient();
+    const organizationId = requireOrganizationId();
+    const payload = {
+      organization_id: organizationId,
+      customer_id: input.customerId,
+      employee_id: input.employeeId || null,
+      title: input.title.trim(),
+      description: input.description.trim() || null,
+      date: input.date,
+      start_time: input.startTime,
+      end_time: input.endTime || null,
+      status: input.status,
+      address: input.address.trim() || null,
+      notes: input.notes.trim() || null,
+    };
+    const query = jobId
+      ? client.from("jobs").update(payload).eq("id", jobId).eq("organization_id", organizationId)
+      : client.from("jobs").insert(payload);
+    const { data, error } = await query.select().single();
+    if (error) throw new Error(`Auftrag konnte nicht gespeichert werden: ${error.message}`);
+    const job = mapJobRow(data as Record<string, unknown>);
+    setState((previous) => ({
+      ...previous,
+      jobs: jobId
+        ? previous.jobs.map((item) => item.id === jobId ? job : item)
+        : [...previous.jobs, job],
+    }));
+    return job;
+  }, [requireClient, requireOrganizationId]);
 
-    let saved!: Job;
-
-    if (supabase && state.activeOrganizationId) {
-      const payload = {
-        id: jobId,
-        organization_id: state.activeOrganizationId,
-        customer_id: input.customerId,
-        employee_id: input.employeeId || null,
-        title: input.title,
-        description: input.description,
-        date: input.date,
-        start_time: input.startTime,
-        end_time: input.endTime,
-        status: input.status,
-        address: input.address,
-        notes: input.notes,
-      };
-
-      const query = jobId
-        ? supabase.from("jobs").update(payload).eq("id", jobId).select().single()
-        : supabase.from("jobs").insert(payload).select().single();
-
-      void query.then(({ data, error }) => {
-        if (error) {
-          console.error("Supabase job save failed:", error.message);
-          return;
-        }
-
-        const mapped = mapJobRow(data as Record<string, unknown>);
-        setState((previous) => ({
-          ...previous,
-          jobs: jobId
-            ? previous.jobs.map((job) => (job.id === jobId ? mapped : job))
-            : [...previous.jobs, mapped],
-        }));
-      });
-    }
-
-    setState((previous) => {
-      const existing = previous.jobs.find((entry) => entry.id === jobId);
-
-      if (existing) {
-        const updated: Job = {
-          ...existing,
-          ...input,
-          organizationId: previous.activeOrganizationId ?? previous.organizations[0]?.id ?? organizationId,
-          updatedAt: timestamp,
-        };
-
-        saved = updated;
-        return {
-          ...previous,
-          jobs: previous.jobs.map((entry) => (entry.id === jobId ? updated : entry)),
-        };
-      }
-
-      const job: Job = {
-        id: `job-${Math.random().toString(36).slice(2, 11)}`,
-        organizationId,
-        customerId: input.customerId,
-        employeeId: input.employeeId || null,
-        title: input.title,
-        description: input.description,
-        date: input.date,
-        startTime: input.startTime,
-        endTime: input.endTime,
-        status: input.status,
-        address: input.address,
-        notes: input.notes,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
-
-      saved = job;
-      return {
-        ...previous,
-        jobs: [...previous.jobs, job],
-      };
-    });
-
-    return saved as Job;
-  }, [state.activeOrganizationId, state.organizations]);
-
-  const deleteJob = useCallback((jobId: string) => {
-    if (supabase && state.activeOrganizationId) {
-      void supabase.from("jobs").delete().eq("id", jobId).then(({ error }) => {
-        if (error) {
-          console.error("Supabase job delete failed:", error.message);
-        }
-      });
-    }
-
+  const deleteJob = useCallback(async (jobId: string) => {
+    const client = requireClient();
+    const organizationId = requireOrganizationId();
+    const { data, error } = await client.from("jobs").delete()
+      .eq("id", jobId).eq("organization_id", organizationId).select("id").maybeSingle();
+    if (error) throw new Error(`Auftrag konnte nicht gelöscht werden: ${error.message}`);
+    if (!data) throw new Error("Der Auftrag wurde nicht gefunden oder ist bereits gelöscht.");
     setState((previous) => ({
       ...previous,
       jobs: previous.jobs.filter((job) => job.id !== jobId),
     }));
-  }, [state.activeOrganizationId]);
+  }, [requireClient, requireOrganizationId]);
 
-  const updateOrganization = useCallback((name: string, phone: string, email: string, address: string) => {
-    const organizationId = state.activeOrganizationId ?? state.organizations[0]?.id ?? "org-demo";
-    const currentOrganization = state.organizations.find((entry) => entry.id === organizationId);
-    const updated: Organization = {
-      id: organizationId,
-      name,
-      phone,
-      email,
-      address,
-      createdAt: currentOrganization?.createdAt ?? new Date().toISOString(),
-    };
-
-    if (supabase && state.activeOrganizationId) {
-      void supabase
-        .from("organizations")
-        .update({ name, phone, email, address })
-        .eq("id", state.activeOrganizationId)
-        .then(({ error }) => {
-          if (error) {
-            console.error("Supabase organization update failed:", error.message);
-          }
-        });
-    }
-
+  const updateOrganization = useCallback(async (name: string, phone: string, email: string, address: string) => {
+    const client = requireClient();
+    const organizationId = requireOrganizationId();
+    const { data, error } = await client.from("organizations")
+      .update({ name: name.trim(), phone: phone.trim(), email: email.trim(), address: address.trim() })
+      .eq("id", organizationId)
+      .select()
+      .single();
+    if (error) throw new Error(`Organisation konnte nicht gespeichert werden: ${error.message}`);
+    const organization = mapOrganizationRow(data as Record<string, unknown>);
     setState((previous) => ({
       ...previous,
-      organizations: previous.organizations.map((entry) =>
-        entry.id === organizationId ? { ...entry, name, phone, email, address } : entry,
-      ),
+      organizations: previous.organizations.map((item) => item.id === organizationId ? organization : item),
     }));
-
-    return updated;
-  }, [state.activeOrganizationId, state.organizations]);
+    return organization;
+  }, [requireClient, requireOrganizationId]);
 
   const value = useMemo<AppContextValue>(() => ({
     state,
     currentUser,
     activeOrganization,
     isReady,
+    appError,
+    refreshData,
     signIn,
     signUp,
     signOut,
@@ -747,16 +558,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     saveJob,
     deleteJob,
     updateOrganization,
-  }), [activeOrganization, currentUser, deleteCustomer, deleteEmployee, deleteJob, isReady, saveCustomer, saveEmployee, saveJob, signIn, signUp, signOut, state, updateOrganization]);
+  }), [
+    activeOrganization, appError, currentUser, deleteCustomer, deleteEmployee, deleteJob, isReady,
+    refreshData, saveCustomer, saveEmployee, saveJob, signIn, signOut, signUp, state, updateOrganization,
+  ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
 export function useApp() {
   const context = useContext(AppContext);
-  if (!context) {
-    throw new Error("useApp must be used inside AppProvider");
-  }
-
+  if (!context) throw new Error("useApp must be used inside AppProvider");
   return context;
 }

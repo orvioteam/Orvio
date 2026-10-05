@@ -1,111 +1,85 @@
 "use client";
 
-import Link from "next/link";
-import { format } from "date-fns";
+import { useRouter, useSearchParams } from "next/navigation";
+import { addDays, format, isValid, parseISO, startOfDay } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowRight, BriefcaseBusiness, CalendarDays } from "lucide-react";
-import { Badge, Card, PageHeader, StatCard } from "@/components/ui";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Badge, Button, Card, EmptyState, PageHeader } from "@/components/ui";
 import { useApp } from "@/components/providers";
 
+const statusLabel = {
+  scheduled: "Geplant",
+  in_progress: "In Bearbeitung",
+  completed: "Abgeschlossen",
+  cancelled: "Storniert",
+} as const;
+
 export default function DashboardPage() {
-  const { state, currentUser } = useApp();
-  const todayDate = format(new Date(), "yyyy-MM-dd");
-  const todayJobs = state.jobs.filter((job) => job.date === todayDate);
-  const employeesInUse = new Set(todayJobs.filter((job) => job.employeeId).map((job) => job.employeeId)).size;
-  const openJobs = state.jobs.filter((job) => job.status !== "completed" && job.status !== "cancelled").length;
-  const completedToday = state.jobs.filter((job) => job.date === todayDate && job.status === "completed").length;
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { state } = useApp();
+  const today = startOfDay(new Date());
+  const todayKey = format(today, "yyyy-MM-dd");
+  const requestedDate = searchParams.get("date");
+  const parsedDate = requestedDate ? parseISO(requestedDate) : null;
+  const selectedDate = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) && parsedDate && isValid(parsedDate)
+    ? startOfDay(parsedDate)
+    : today;
+  const dateKey = format(selectedDate, "yyyy-MM-dd");
+  const dayJobs = state.jobs
+    .filter((job) => job.date === dateKey)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  const changeDate = (date: Date) => {
+    const nextDate = format(date, "yyyy-MM-dd");
+    router.replace(nextDate === todayKey ? "/dashboard" : `/dashboard?date=${nextDate}`, { scroll: false });
+  };
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={`Guten Morgen, ${currentUser ? `${currentUser.firstName}` : "Benutzer"}`} description={format(new Date(), "EEEE, d. MMMM yyyy", { locale: de })} />
+    <div className="min-w-0">
+      <PageHeader
+        title={dateKey === todayKey ? "Heute" : "Tagesplan"}
+        description={format(selectedDate, "EEEE, d. MMMM yyyy", { locale: de })}
+        action={<Button type="button" onClick={() => router.push(`/jobs?new=1&date=${dateKey}`)}><Plus className="mr-2 h-4 w-4" /> Auftrag hinzufügen</Button>}
+      />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Aufträge heute" value={String(todayJobs.length)} detail="Aktuell geplant" />
-        <StatCard label="Mitarbeiter im Einsatz" value={String(employeesInUse)} detail="Heute aktiv" />
-        <StatCard label="Offene Aufträge" value={String(openJobs)} detail="In Bearbeitung" />
-        <StatCard label="Abgeschlossen heute" value={String(completedToday)} detail="Zum Tagesabschluss" />
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_0.8fr]">
-        <Card className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-slate-900">Heute</h2>
-            <Link href="/schedule" className="inline-flex items-center gap-2 text-sm font-medium text-emerald-600">
-              Tagesplan ansehen <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-
-          <div className="space-y-4">
-            {todayJobs.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
-                Keine Aufträge für heute angelegt.
-              </div>
-            ) : (
-              todayJobs.map((job) => {
-                const customer = state.customers.find((entry) => entry.id === job.customerId);
-                const employee = state.employees.find((entry) => entry.id === job.employeeId);
-
-                return (
-                  <div key={job.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">{job.startTime}</p>
-                      <div className="mt-2 flex items-center gap-2">
-                        <p className="text-base font-semibold text-slate-900">{employee ? `${employee.firstName} ${employee.lastName}` : "Noch offen"}</p>
-                        <Badge status={job.status}>{job.status === "scheduled" ? "Geplant" : job.status === "in_progress" ? "In Bearbeitung" : job.status === "completed" ? "Abgeschlossen" : "Storniert"}</Badge>
-                      </div>
-                      <p className="mt-1 text-sm text-slate-600">{customer?.companyName ?? "Kunde"}</p>
-                      <p className="text-sm text-slate-500">{job.title}</p>
-                    </div>
-                    <div className="text-sm text-slate-500 md:text-right">
-                      <p>{job.startTime} - {job.endTime}</p>
-                      <p className="mt-1">{customer?.name ?? "Kunde"}</p>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </Card>
-
-        <div className="space-y-4">
-          <Card>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700"><BriefcaseBusiness className="h-5 w-5" /></div>
-              <div>
-                <p className="text-sm text-slate-500">Schnellaktionen</p>
-                <h3 className="font-semibold text-slate-900">Neue Einträge</h3>
-              </div>
-            </div>
-            <div className="mt-4 space-y-2">
-              <Link href="/jobs" className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100">
-                <span>Auftrag</span>
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link href="/customers" className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100">
-                <span>Kunde</span>
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link href="/employees" className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100">
-                <span>Mitarbeiter</span>
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </Card>
-
-          <Card className="space-y-3">
-            <div className="flex items-center gap-3 text-slate-900">
-              <CalendarDays className="h-5 w-5 text-emerald-600" />
-              <h3 className="font-semibold">Nächste Termine</h3>
-            </div>
-            {state.jobs.slice(0, 3).map((job) => (
-              <div key={job.id} className="rounded-xl bg-slate-50 p-3">
-                <p className="text-sm font-semibold text-slate-800">{job.title}</p>
-                <p className="text-xs text-slate-500">{job.startTime} - {job.endTime}</p>
-              </div>
-            ))}
-          </Card>
+      <Card className="mb-5 p-3 sm:p-4">
+        <div className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2">
+          <button type="button" aria-label="Vorheriger Tag" onClick={() => changeDate(addDays(selectedDate, -1))} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100"><ChevronLeft className="h-5 w-5" /></button>
+          <label className="min-w-0 text-center">
+            <span className="sr-only">Datum auswählen</span>
+            <input type="date" value={dateKey} onChange={(event) => { if (event.target.value) changeDate(parseISO(event.target.value)); }} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-center text-sm font-medium" />
+          </label>
+          <button type="button" aria-label="Nächster Tag" onClick={() => changeDate(addDays(selectedDate, 1))} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100"><ChevronRight className="h-5 w-5" /></button>
         </div>
-      </div>
+      </Card>
+
+      {dayJobs.length === 0 ? (
+        <EmptyState
+          title={dateKey === todayKey ? "Heute sind keine Aufträge geplant" : "Keine Aufträge an diesem Tag"}
+          description="Für diesen Tag sind keine Einsätze geplant."
+        />
+      ) : (
+        <div className="space-y-2">
+          {dayJobs.map((job) => {
+            const customer = state.customers.find((entry) => entry.id === job.customerId);
+            const employee = state.employees.find((entry) => entry.id === job.employeeId);
+            return (
+              <Card key={job.id} className="min-w-0 p-4 sm:p-5">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+                  <p className="w-16 shrink-0 text-lg font-semibold tabular-nums text-slate-900">{job.startTime}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words font-semibold text-slate-900">{customer?.companyName || customer?.name || "Kunde nicht verfügbar"}</p>
+                    <p className="mt-1 break-words text-sm text-slate-600">{employee ? `${employee.firstName} ${employee.lastName}` : "Nicht zugewiesen"}</p>
+                  </div>
+                  <Badge status={job.status}>{statusLabel[job.status]}</Badge>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+      <p className="mt-4 text-sm text-slate-500">{dayJobs.length} {dayJobs.length === 1 ? "Auftrag" : "Aufträge"} an diesem Tag</p>
     </div>
   );
 }

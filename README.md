@@ -16,28 +16,22 @@ npm install
 
 ## Environment Variables
 
-Kopieren Sie die Beispiel-Datei und ergänzen Sie die Werte:
+Kopieren Sie die Beispiel-Datei und tragen Sie die Werte aus Ihrem Supabase-Projekt ein:
 
-```bash
-cp .env.example .env.local
+```powershell
+Copy-Item .env.example .env.local
 ```
 
-Beispiel:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
+Der Code verwendet `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` für Browser-, Server- und Proxy-Clients. `NEXT_PUBLIC_APP_URL` ist für Deployment-Konfiguration dokumentiert, wird derzeit aber nicht vom Anwendungscode gelesen. `SUPABASE_SERVICE_ROLE_KEY` wird ebenfalls derzeit nicht verwendet; tragen Sie ihn nicht im Browser ein und benennen Sie ihn niemals mit dem Präfix `NEXT_PUBLIC_`.
 
 ## Supabase Setup
 
 1. Erstellen Sie ein neues Supabase-Projekt.
 2. Öffnen Sie die SQL-Editor-Oberfläche in Supabase.
-3. Führen Sie alle SQL-Anweisungen aus `supabase/schema.sql` aus.
-4. Aktivieren Sie in Supabase Auth die gewünschte E-Mail-Authentifizierung.
-5. Setzen Sie die Projekt-URL und den anon key in `.env.local`.
+3. Führen Sie den vollständigen Inhalt aus `supabase/schema.sql` einmal im SQL Editor aus. Die gleichwertige Migration liegt unter `supabase/migrations/001_create_cleanflow_schema.sql`.
+4. Bei einem bereits eingerichteten Projekt führen Sie zusätzlich `supabase/migrations/003_fix_registration_rls.sql` im Supabase SQL Editor aus.
+5. Aktivieren Sie in Supabase Auth die E-Mail-Authentifizierung. Bei aktivierter E-Mail-Bestätigung bestätigen neue Benutzer zunächst ihre E-Mail und melden sich anschließend an; die Organisation wird beim ersten Login erstellt.
+6. Setzen Sie Project URL und Publishable Key in `.env.local` und starten Sie den Entwicklungsserver neu.
 
 ## Datenbank Migration
 
@@ -61,16 +55,9 @@ npm run dev
 ### Vercel
 
 1. Importieren Sie das Repository in Vercel.
-2. Fügen Sie die Umgebungsvariablen aus `.env.example` hinzu.
+2. Setzen Sie `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` und `NEXT_PUBLIC_APP_URL` vor dem Build in den Vercel-Environment-Variablen.
 3. Deployen Sie das Projekt.
 4. Aktivieren Sie die Production-Environment-Variablen.
-
-## Demo-Login
-
-Für die lokale Vorschau ist ein Demo-User hinterlegt:
-
-- E-Mail: `owner@sauberplus.ch`
-- Passwort: `cleanflow123`
 
 ## Zukünftige Stripe Integration
 
@@ -78,6 +65,7 @@ Die Architektur ist bereits auf SaaS- und Billing-Features vorbereitet. Später 
 
 ## Sicherheit
 
-- Die App ist multi-tenant vorbereitet und trennen Organisationen sauber.
-- RLS-Policies sind in `supabase/schema.sql` vorbereitet.
-- In Produktion sollten nur Supabase-Authentifizierung und echte Datenbankzugriffe verwendet werden.
+- Kunden, Mitarbeiter und Aufträge sind durch RLS auf Mitgliedschaften der eigenen Organisation beschränkt.
+- Jobs können per Foreign Key nur Kunden und Mitarbeiter derselben Organisation referenzieren.
+- Bei fehlender Supabase-URL oder Publishable Key zeigt CleanFlow einen Konfigurationshinweis statt Demo-Daten.
+- Der Service-Role-Key wird von CleanFlow nicht benötigt und darf niemals an den Client gelangen.

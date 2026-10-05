@@ -22,8 +22,8 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "owner@sauberplus.ch",
-      password: "cleanflow123",
+      email: "",
+      password: "",
     },
   });
 
@@ -101,12 +101,8 @@ export default function LoginPage() {
                   <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{form.formState.errors.root.message}</p>
                 ) : null}
 
-                <Button type="submit" className="w-full">Einloggen <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? "Anmeldung läuft…" : "Einloggen"} {!form.formState.isSubmitting ? <ArrowRight className="ml-2 h-4 w-4" /> : null}</Button>
               </form>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                Demo-Zugang: <span className="font-medium text-slate-900">owner@sauberplus.ch</span> / <span className="font-medium text-slate-900">cleanflow123</span>
-              </div>
 
               <p className="text-center text-sm text-slate-600">
                 Noch kein Konto?{' '}

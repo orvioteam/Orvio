@@ -38,7 +38,9 @@ export default function RegisterPage() {
       router.push("/dashboard");
     } catch (error) {
       form.setError("root", {
-        message: error instanceof Error ? error.message : "Registrierung fehlgeschlagen.",
+        message: error instanceof Error && error.message.startsWith("Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse")
+          ? error.message
+          : "Registrierung konnte nicht abgeschlossen werden.\nBitte versuchen Sie es erneut.\nFalls das Problem bleibt, wenden Sie sich an den Support.",
       });
     }
   };
@@ -79,12 +81,12 @@ export default function RegisterPage() {
               {form.formState.errors.password ? <p className="text-xs text-rose-600">{form.formState.errors.password.message}</p> : null}
 
               {form.formState.errors.root ? (
-                <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{form.formState.errors.root.message}</p>
+                <p className="whitespace-pre-line rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{form.formState.errors.root.message}</p>
               ) : null}
 
-              <Button type="submit" className="w-full">
-                Konto erstellen
-                <ArrowRight className="ml-2 h-4 w-4" />
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? "Konto wird erstellt…" : "Konto erstellen"}
+                {!form.formState.isSubmitting ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
               </Button>
             </form>
 

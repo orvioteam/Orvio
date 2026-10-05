@@ -1,8 +1,13 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { hasSupabase } from "@/lib/supabase/client";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
+  if (!hasSupabase) {
+    return children;
+  }
+
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
