@@ -26,6 +26,7 @@ type SignupDebugStatus = {
   organization: string;
   membership: string;
   redirect: string;
+  authError: string;
 };
 
 const initialSignupDebugStatus: SignupDebugStatus = {
@@ -35,20 +36,26 @@ const initialSignupDebugStatus: SignupDebugStatus = {
   organization: "Wartet",
   membership: "Wartet",
   redirect: "Wartet",
+  authError: "",
 };
 
 function logSupabaseError(step: string, error: {
   message: string;
   code?: string;
+  status?: number;
 }) {
   if (process.env.NODE_ENV !== "development") return;
 
-  console.error(`[auth-debug] ${step} ERROR`, {
-    message: error.message,
-    code: error.code ?? null,
-    details: "details" in error && typeof error.details === "string" ? error.details : null,
-    hint: "hint" in error && typeof error.hint === "string" ? error.hint : null,
-  });
+  console.error(
+    `[auth-debug] ${step} ERROR`,
+    JSON.stringify({
+      message: error.message,
+      code: error.code ?? null,
+      status: error.status ?? null,
+      details: "details" in error ? error.details : null,
+      hint: "hint" in error ? error.hint : null,
+    }, null, 2),
+  );
 }
 
 export default function RegisterPage() {
@@ -78,6 +85,7 @@ export default function RegisterPage() {
       organization: "Wartet",
       membership: "Wartet",
       redirect: "Wartet",
+      authError: "",
     });
     let currentStep = "SIGN_UP";
 
@@ -101,6 +109,7 @@ export default function RegisterPage() {
           hasSession: Boolean(data.session),
           errorMessage: error?.message ?? null,
           errorCode: error?.code ?? null,
+          errorStatus: error?.status ?? null,
           errorDetails: error && "details" in error && typeof error.details === "string" ? error.details : null,
           errorHint: error && "hint" in error && typeof error.hint === "string" ? error.hint : null,
         });
@@ -112,9 +121,15 @@ export default function RegisterPage() {
           console.info("[auth-debug] SESSION NOT VERIFIED; signup returned an auth error");
         }
         logSupabaseError("SIGN_UP AUTH", error);
-        setDebugStatus((status) => ({ ...status, signup: "AUTH ERROR" }));
+        setDebugStatus((status) => ({
+          ...status,
+          signup: "AUTH ERROR",
+          authError: error.message,
+        }));
         form.setError("root", {
-          message: "Registrierung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
+          message: process.env.NODE_ENV === "development"
+            ? `Auth: ${error.message}`
+            : "Registrierung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
         });
         return;
       }
@@ -265,6 +280,7 @@ export default function RegisterPage() {
                   <p>ORGANIZATION: {debugStatus.organization}</p>
                   <p>MEMBERSHIP: {debugStatus.membership}</p>
                   <p>REDIRECT: {debugStatus.redirect}</p>
+                  {debugStatus.authError ? <p>AUTH ERROR: {debugStatus.authError}</p> : null}
                 </section>
               ) : null}
               <Input label="Firmenname" autoComplete="organization" placeholder="SauberPlus Reinigung" {...form.register("organizationName")} />
