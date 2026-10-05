@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, Building2 } from "lucide-react";
 import { useApp } from "@/components/providers";
+import { createClient } from "@/lib/supabase/client";
 import { Button, Input } from "@/components/ui";
 
 const registerSchema = z.object({
@@ -20,7 +21,7 @@ const registerSchema = z.object({
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { signUp, currentUser } = useApp();
+  const { refreshData } = useApp();
   const [confirmationRequired, setConfirmationRequired] = useState(false);
 
   const form = useForm<z.infer<typeof registerSchema>>({
@@ -34,22 +35,68 @@ export default function RegisterPage() {
     },
   });
 
-  useEffect(() => {
-    if (currentUser) {
-      router.replace("/dashboard");
-    }
-  }, [currentUser, router]);
-
   const onSubmit = async (values: z.infer<typeof registerSchema>) => {
     setConfirmationRequired(false);
     form.clearErrors("root");
     try {
-      const result = await signUp(values);
-      if (result.status === "confirmation_required") {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signUp({
+        email: values.email,
+        password: values.password,
+        options: {
+          data: {
+            full_name: `${values.firstName} ${values.lastName}`.trim(),
+          },
+        },
+      });
+
+      if (error) {
+        form.setError("root", {
+          message: "Registrierung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
+        });
+        return;
+      }
+
+      if (!data.user) {
+        form.setError("root", {
+          message: "Registrierung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
+        });
+        return;
+      }
+
+      if (!data.session) {
         setConfirmationRequired(true);
         return;
       }
+
+      const user = data.session.user;
+      const { data: organization, error: organizationError } = await supabase
+        .from("organizations")
+        .insert({
+          name: values.organizationName.trim(),
+          email: values.email.trim(),
+          created_by: user.id,
+        })
+        .select("id")
+        .single();
+      if (organizationError) {
+        throw new Error(`Organisation konnte nicht erstellt werden: ${organizationError.message}`);
+      }
+
+      const { error: membershipError } = await supabase
+        .from("organization_members")
+        .insert({
+          organization_id: organization.id,
+          user_id: user.id,
+          role: "owner",
+        });
+      if (membershipError) {
+        throw new Error(`Owner-Mitgliedschaft konnte nicht erstellt werden: ${membershipError.message}`);
+      }
+
+      await refreshData();
       router.replace("/dashboard");
+      router.refresh();
     } catch (error) {
       form.setError("root", {
         message: error instanceof Error
@@ -102,7 +149,7 @@ export default function RegisterPage() {
 
               {confirmationRequired ? (
                 <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                  Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse. Ihre Eingaben bleiben erhalten; melden Sie sich nach der Bestätigung an.
+                  Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse.
                 </p>
               ) : null}
 

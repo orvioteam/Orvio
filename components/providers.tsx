@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { supabase, hasSupabase } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import {
   type AppState,
   type Customer,
@@ -20,7 +20,6 @@ import {
   type JobFormInput,
   type Organization,
   type RegisteredUser,
-  type SignUpInput,
 } from "@/lib/types";
 
 const emptyState: AppState = {
@@ -95,26 +94,24 @@ type SupabaseUserLike = {
   user_metadata?: {
     first_name?: string;
     last_name?: string;
-    organization_name?: string;
+    full_name?: string;
   };
 };
 
-const mapSupabaseUser = (
-  user: SupabaseUserLike,
-  organizationId: string,
-): RegisteredUser => ({
-  id: user.id,
-  email: user.email ?? "",
-  firstName: user.user_metadata?.first_name ?? "Benutzer",
-  lastName: user.user_metadata?.last_name ?? "",
-  organizationId,
-  passwordHash: "",
-});
+const mapSupabaseUser = (user: SupabaseUserLike, organizationId: string): RegisteredUser => {
+  const fullName = user.user_metadata?.full_name?.trim().split(/\s+/) ?? [];
+  return {
+    id: user.id,
+    email: user.email ?? "",
+    firstName: user.user_metadata?.first_name ?? fullName[0] ?? "Benutzer",
+    lastName: user.user_metadata?.last_name ?? fullName.slice(1).join(" "),
+    organizationId,
+    passwordHash: "",
+  };
+};
 
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Ein unerwarteter Fehler ist aufgetreten.";
-
-class AuthFlowError extends Error {}
 
 interface AppContextValue {
   state: AppState;
@@ -123,11 +120,6 @@ interface AppContextValue {
   isReady: boolean;
   appError: string | null;
   refreshData: () => Promise<void>;
-  signIn: (email: string, password: string) => Promise<RegisteredUser>;
-  signUp: (input: SignUpInput) => Promise<
-    | { status: "authenticated"; user: RegisteredUser }
-    | { status: "confirmation_required" }
-  >;
   signOut: () => Promise<void>;
   saveCustomer: (input: CustomerFormInput, customerId?: string) => Promise<Customer>;
   deleteCustomer: (customerId: string) => Promise<void>;
@@ -141,7 +133,7 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  if (!hasSupabase) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
         <section className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -161,17 +153,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 }
 
 function ConfiguredAppProvider({ children }: { children: ReactNode }) {
+  const client = useMemo(() => createClient(), []);
   const [state, setState] = useState<AppState>(emptyState);
   const [isReady, setIsReady] = useState(false);
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUserLike | null>(null);
   const [appError, setAppError] = useState<string | null>(null);
 
   const requireClient = useCallback(() => {
-    if (!supabase) throw new Error("Supabase ist nicht konfiguriert.");
-    return supabase;
-  }, []);
+    return client;
+  }, [client]);
 
-  const hydrateSupabaseState = useCallback(async (user: SupabaseUserLike) => {
+  const loadOrganizationData = useCallback(async (user: SupabaseUserLike) => {
     const client = requireClient();
     const { data: membership, error: memberError } = await client
       .from("organization_members")
@@ -182,41 +174,15 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
 
     if (memberError) throw new Error(`Mitgliedschaft konnte nicht geladen werden: ${memberError.message}`);
-    let memberData = membership;
-    if (!memberData) {
-      const organizationName = user.user_metadata?.organization_name?.trim();
-      if (!organizationName) {
-        throw new Error("Für dieses Benutzerkonto ist noch keine Organisation eingerichtet.");
-      }
-
-      const { data: existingOrganization, error: lookupError } = await client
-        .from("organizations")
-        .select("*")
-        .eq("created_by", user.id)
-        .maybeSingle();
-      if (lookupError) throw new Error(`Organisation konnte nicht geprüft werden: ${lookupError.message}`);
-
-      let organization = existingOrganization;
-      if (!organization) {
-        const { data, error } = await client
-          .from("organizations")
-          .insert({ name: organizationName, email: user.email ?? "", created_by: user.id })
-          .select()
-          .single();
-        if (error) throw new Error(`Organisation konnte nicht erstellt werden: ${error.message}`);
-        organization = data;
-      }
-
-      const { data: newMembership, error: createMemberError } = await client
-        .from("organization_members")
-        .insert({ organization_id: organization.id, user_id: user.id, role: "owner" })
-        .select("id, organization_id, role, created_at")
-        .single();
-      if (createMemberError) throw new Error(`Mitgliedschaft konnte nicht angelegt werden: ${createMemberError.message}`);
-      memberData = newMembership;
+    if (!membership) {
+      const registeredUser = mapSupabaseUser(user, "");
+      return {
+        state: { ...emptyState, users: [registeredUser], currentUserId: user.id },
+        appError: "Für dieses Benutzerkonto ist noch keine Organisation eingerichtet.",
+      };
     }
 
-    const organizationId = String(memberData.organization_id);
+    const organizationId = String(membership.organization_id);
     const [organizationResult, customersResult, employeesResult, jobsResult] = await Promise.all([
       client.from("organizations").select("*").eq("id", organizationId).single(),
       client.from("customers").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
@@ -228,32 +194,30 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
     if (customersResult.error) throw new Error(`Kunden konnten nicht geladen werden: ${customersResult.error.message}`);
     if (employeesResult.error) throw new Error(`Mitarbeiter konnten nicht geladen werden: ${employeesResult.error.message}`);
     if (jobsResult.error) throw new Error(`Aufträge konnten nicht geladen werden: ${jobsResult.error.message}`);
-
     const organization = mapOrganizationRow(organizationResult.data as Record<string, unknown>);
     const registeredUser = mapSupabaseUser(user, organizationId);
-    setSupabaseUser(user);
-    setState({
-      organizations: [organization],
-      organizationMembers: [{
-        id: String(memberData.id),
-        organizationId,
-        userId: user.id,
-        role: memberData.role as "owner" | "manager" | "admin",
-        createdAt: String(memberData.created_at ?? ""),
-      }],
-      customers: (customersResult.data ?? []).map((row) => mapCustomerRow(row as Record<string, unknown>)),
-      employees: (employeesResult.data ?? []).map((row) => mapEmployeeRow(row as Record<string, unknown>)),
-      jobs: (jobsResult.data ?? []).map((row) => mapJobRow(row as Record<string, unknown>)),
-      users: [registeredUser],
-      currentUserId: user.id,
-      activeOrganizationId: organizationId,
-    });
-    setAppError(null);
-    return registeredUser;
+    return {
+      state: {
+        organizations: [organization],
+        organizationMembers: [{
+          id: String(membership.id),
+          organizationId,
+          userId: user.id,
+          role: membership.role as "owner" | "manager" | "admin",
+          createdAt: String(membership.created_at ?? ""),
+        }],
+        customers: (customersResult.data ?? []).map((row) => mapCustomerRow(row as Record<string, unknown>)),
+        employees: (employeesResult.data ?? []).map((row) => mapEmployeeRow(row as Record<string, unknown>)),
+        jobs: (jobsResult.data ?? []).map((row) => mapJobRow(row as Record<string, unknown>)),
+        users: [registeredUser],
+        currentUserId: user.id,
+        activeOrganizationId: organizationId,
+      },
+      appError: null,
+    };
   }, [requireClient]);
 
   const refreshData = useCallback(async () => {
-    setAppError(null);
     try {
       const client = requireClient();
       const { data, error } = await client.auth.getUser();
@@ -261,54 +225,59 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
       if (!data.user) {
         setState(emptyState);
         setSupabaseUser(null);
+        setAppError(null);
+        setIsReady(true);
         return;
       }
-      await hydrateSupabaseState(data.user);
+      setSupabaseUser(data.user);
+      const result = await loadOrganizationData(data.user);
+      setState(result.state);
+      setAppError(result.appError);
+      setIsReady(true);
     } catch (error) {
-      setState(emptyState);
-      setSupabaseUser(null);
       setAppError(errorMessage(error));
     }
-  }, [hydrateSupabaseState, requireClient]);
+  }, [loadOrganizationData, requireClient]);
 
   useEffect(() => {
-    if (!supabase) return;
-    const client = supabase;
-    let isMounted = true;
-
-    const initialize = async () => {
-      try {
-        const { data, error } = await client.auth.getSession();
-        if (error) throw new Error(`Sitzung konnte nicht geladen werden: ${error.message}`);
-        if (data.session?.user) await hydrateSupabaseState(data.session.user);
-      } catch (error) {
-        if (isMounted) {
-          setAppError(errorMessage(error));
-          setState(emptyState);
-          setSupabaseUser(null);
-        }
-      } finally {
-        if (isMounted) setIsReady(true);
-      }
-    };
-
-    void initialize();
-
-    const { data: authListener } = client.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT" || !session?.user) {
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
         setState(emptyState);
         setSupabaseUser(null);
         setAppError(null);
-      } else if (event === "USER_UPDATED") {
-        void hydrateSupabaseState(session.user).catch((error: unknown) => setAppError(errorMessage(error)));
+        setIsReady(true);
+        return;
       }
+
+      setSupabaseUser(session.user);
+      setIsReady(false);
     });
 
+    return () => subscription.unsubscribe();
+  }, [client]);
+
+  useEffect(() => {
+    if (!supabaseUser) return;
+    let isActive = true;
+
+    void Promise.resolve()
+      .then(() => loadOrganizationData(supabaseUser))
+      .then((result) => {
+        if (!isActive) return;
+        setState(result.state);
+        setAppError(result.appError);
+      })
+      .catch((error: unknown) => {
+        if (isActive) setAppError(errorMessage(error));
+      })
+      .finally(() => {
+        if (isActive) setIsReady(true);
+      });
+
     return () => {
-      isMounted = false;
-      authListener.subscription.unsubscribe();
+      isActive = false;
     };
-  }, [hydrateSupabaseState]);
+  }, [loadOrganizationData, supabaseUser]);
 
   const currentUser = supabaseUser
     ? mapSupabaseUser(supabaseUser, state.activeOrganizationId ?? "")
@@ -317,98 +286,12 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
     (organization) => organization.id === state.activeOrganizationId,
   ) ?? null;
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    try {
-      const client = requireClient();
-      if (process.env.NODE_ENV === "development") {
-        console.info("[auth-debug] SIGN_IN: invoking signInWithPassword");
-      }
-      const { data, error } = await client.auth.signInWithPassword({ email, password });
-      if (process.env.NODE_ENV === "development") {
-        console.info("[auth-debug] SIGN_IN: signInWithPassword result", {
-          userPresent: Boolean(data.user),
-          userId: data.user?.id.slice(0, 8) ?? null,
-          sessionPresent: Boolean(data.session),
-          errorMessage: error?.message ?? null,
-        });
-      }
-      if (error) {
-        if (process.env.NODE_ENV === "development") {
-          console.error("[auth-debug] SIGN_IN: Supabase rejected the credentials", {
-            errorMessage: error.message,
-          });
-        }
-        const message = error.code === "email_not_confirmed"
-          ? "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse."
-          : error.code === "invalid_credentials"
-            ? "E-Mail oder Passwort ist nicht korrekt."
-            : "Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.";
-        throw new AuthFlowError(message);
-      }
-      if (!data.user) throw new Error("Supabase hat nach dem Login keinen Benutzer zurückgegeben.");
-
-      const { data: authenticatedData, error: identityError } = await client.auth.getUser();
-      if (identityError) throw identityError;
-      if (authenticatedData.user?.id !== data.user.id) {
-        throw new Error("Die Supabase-Sitzung konnte nicht bestätigt werden.");
-      }
-
-      const user = await hydrateSupabaseState(authenticatedData.user);
-      setAppError(null);
-      return user;
-    } catch (hydrateError) {
-      if (hydrateError instanceof AuthFlowError) throw hydrateError;
-      if (process.env.NODE_ENV === "development") {
-        console.error("[auth-debug] SIGN_IN: post-auth verification or hydration failed", {
-          errorMessage: errorMessage(hydrateError),
-        });
-      }
-      setAppError(null);
-      throw new AuthFlowError("Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.");
-    }
-  }, [hydrateSupabaseState, requireClient]);
-
-  const signUp = useCallback(async (input: SignUpInput) => {
-    try {
-      const client = requireClient();
-      const { data, error } = await client.auth.signUp({
-        email: input.email,
-        password: input.password,
-        options: {
-          data: {
-            first_name: input.firstName,
-            last_name: input.lastName,
-            organization_name: input.organizationName,
-          },
-        },
-      });
-
-      if (error) throw error;
-      if (!data.user) throw new Error("Supabase hat kein Benutzerkonto zurückgegeben.");
-      if (data.user.identities?.length === 0) {
-        throw new Error("Registrierung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut oder melden Sie sich an.");
-      }
-      if (!data.session) {
-        return { status: "confirmation_required" as const };
-      }
-
-      const { data: authenticatedData, error: identityError } = await client.auth.getUser();
-      if (identityError) throw identityError;
-      if (authenticatedData.user?.id !== data.user.id) throw new Error("Der angemeldete Benutzer stimmt nicht mit dem neuen Konto überein.");
-
-      const user = await hydrateSupabaseState(authenticatedData.user);
-      return { status: "authenticated" as const, user };
-    } catch (error) {
-      console.error("CleanFlow registration could not be completed.", error);
-      throw new Error("Registrierung konnte nicht abgeschlossen werden.");
-    }
-  }, [hydrateSupabaseState, requireClient]);
-
   const signOut = useCallback(async () => {
     const { error } = await requireClient().auth.signOut();
     if (error) throw new Error(error.message || "Abmeldung fehlgeschlagen.");
     setState(emptyState);
     setSupabaseUser(null);
+    setIsReady(true);
   }, [requireClient]);
 
   const requireOrganizationId = useCallback(() => {
@@ -568,8 +451,6 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
     isReady,
     appError,
     refreshData,
-    signIn,
-    signUp,
     signOut,
     saveCustomer,
     deleteCustomer,
@@ -580,7 +461,7 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
     updateOrganization,
   }), [
     activeOrganization, appError, currentUser, deleteCustomer, deleteEmployee, deleteJob, isReady,
-    refreshData, saveCustomer, saveEmployee, saveJob, signIn, signOut, signUp, state, updateOrganization,
+    refreshData, saveCustomer, saveEmployee, saveJob, signOut, state, updateOrganization,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

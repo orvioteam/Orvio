@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useApp } from "@/components/providers";
+import { createClient } from "@/lib/supabase/client";
 import { Button, Input } from "@/components/ui";
 
 const loginSchema = z.object({
@@ -17,16 +16,6 @@ const loginSchema = z.object({
 
 export default function LoginPage() {
   const router = useRouter();
-  const pathname = usePathname();
-  const { signIn, currentUser } = useApp();
-  const [authDebug, setAuthDebug] = useState({
-    submit: "wartet",
-    signIn: "wartet",
-    session: "wartet",
-    redirect: "wartet",
-    proxy: "wartet",
-    dashboard: "wartet",
-  });
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -36,66 +25,36 @@ export default function LoginPage() {
     },
   });
 
-  useEffect(() => {
-    if (currentUser) {
-      if (process.env.NODE_ENV === "development") {
-        console.info("[auth-debug] REDIRECT: currentUser effect requested /dashboard", {
-          pathname,
-          userId: currentUser.id.slice(0, 8),
-        });
-      }
-      router.replace("/dashboard");
-    }
-  }, [currentUser, pathname, router]);
-
   const onSubmit = async (values: z.infer<typeof loginSchema>) => {
     form.clearErrors("root");
-    let stage = "SIGN_IN";
-    if (process.env.NODE_ENV === "development") {
-      console.info("[auth-debug] SUBMIT: handleSubmit reached", { pathname });
-      setAuthDebug({
-        submit: "handleSubmit aufgerufen",
-        signIn: "signInWithPassword wird aufgerufen",
-        session: "warte auf Supabase-Antwort",
-        redirect: "wartet",
-        proxy: "warte auf Request /dashboard",
-        dashboard: "warte auf Proxy-Entscheidung",
-      });
-    }
     try {
-      await signIn(values.email, values.password);
-      if (process.env.NODE_ENV === "development") {
-        console.info("[auth-debug] SESSION: client sign-in completed and getUser identity verified");
-        setAuthDebug((status) => ({
-          ...status,
-          signIn: "abgeschlossen",
-          session: "vorhanden und per getUser bestätigt",
-        }));
-        stage = "REDIRECT";
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: values.email,
+        password: values.password,
+      });
+
+      if (error) {
+        form.setError("root", {
+          message: error.code === "invalid_credentials" || error.message === "Invalid login credentials"
+            ? "E-Mail oder Passwort ist nicht korrekt."
+            : "Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
+        });
+        return;
       }
-      if (process.env.NODE_ENV === "development") {
-        console.info("[auth-debug] REDIRECT: calling router.replace", { pathname, target: "/dashboard" });
-        setAuthDebug((status) => ({ ...status, redirect: "router.replace(/dashboard) aufgerufen" }));
+
+      if (!data.session) {
+        form.setError("root", {
+          message: "Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
+        });
+        return;
       }
+
       router.replace("/dashboard");
-    } catch (error) {
-      if (process.env.NODE_ENV === "development") {
-        const message = error instanceof Error ? error.message : "Unbekannter Fehler";
-        console.error(`[auth-debug] ${stage}: failed`, { pathname, message });
-        setAuthDebug((status) => ({
-          ...status,
-          signIn: stage === "SIGN_IN" ? `fehlgeschlagen: ${message}` : status.signIn,
-          session: stage === "SIGN_IN" ? "nicht bestätigt" : status.session,
-          redirect: stage === "REDIRECT" ? `fehlgeschlagen: ${message}` : status.redirect,
-        }));
-      }
+      router.refresh();
+    } catch {
       form.setError("root", {
-        message: error instanceof Error && (
-          error.message === "E-Mail oder Passwort ist nicht korrekt."
-          || error.message === "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse."
-        )
-          ? error.message
-          : "Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
+        message: "Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
       });
     }
   };
@@ -135,18 +94,6 @@ export default function LoginPage() {
               </div>
 
               <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                {process.env.NODE_ENV === "development" ? (
-                  <section aria-label="Auth Debug" className="space-y-1 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-                    <p className="font-semibold">Auth Debug: submit → signIn → session → redirect</p>
-                    <p>SUBMIT: {authDebug.submit}</p>
-                    <p>SIGN_IN: {authDebug.signIn}</p>
-                    <p>SESSION: {authDebug.session}</p>
-                    <p>REDIRECT: {authDebug.redirect}</p>
-                    <p>PROXY: {authDebug.proxy} (Details im Server-Log)</p>
-                    <p>DASHBOARD: {authDebug.dashboard} (Details im Server-Log)</p>
-                    <p>PATH: {pathname}</p>
-                  </section>
-                ) : null}
                 <Input
                   label="E-Mail"
                   type="email"
