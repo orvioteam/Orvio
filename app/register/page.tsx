@@ -19,50 +19,10 @@ const registerSchema = z.object({
   password: z.string().min(8, "Das Passwort muss mindestens 8 Zeichen lang sein."),
 });
 
-type SignupDebugStatus = {
-  signup: string;
-  user: string;
-  session: string;
-  organization: string;
-  membership: string;
-  redirect: string;
-  authError: string;
-};
-
-const initialSignupDebugStatus: SignupDebugStatus = {
-  signup: "Wartet",
-  user: "Wartet",
-  session: "Wartet",
-  organization: "Wartet",
-  membership: "Wartet",
-  redirect: "Wartet",
-  authError: "",
-};
-
-function logSupabaseError(step: string, error: {
-  message: string;
-  code?: string;
-  status?: number;
-}) {
-  if (process.env.NODE_ENV !== "development") return;
-
-  console.error(
-    `[auth-debug] ${step} ERROR`,
-    JSON.stringify({
-      message: error.message,
-      code: error.code ?? null,
-      status: error.status ?? null,
-      details: "details" in error ? error.details : null,
-      hint: "hint" in error ? error.hint : null,
-    }, null, 2),
-  );
-}
-
 export default function RegisterPage() {
   const router = useRouter();
   const { refreshData } = useApp();
   const [confirmationRequired, setConfirmationRequired] = useState(false);
-  const [debugStatus, setDebugStatus] = useState(initialSignupDebugStatus);
 
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
@@ -78,173 +38,59 @@ export default function RegisterPage() {
   const onSubmit = async (values: z.infer<typeof registerSchema>) => {
     setConfirmationRequired(false);
     form.clearErrors("root");
-    setDebugStatus({
-      signup: "Läuft",
-      user: "Wartet",
-      session: "Wartet",
-      organization: "Wartet",
-      membership: "Wartet",
-      redirect: "Wartet",
-      authError: "",
-    });
-    let currentStep = "SIGN_UP";
-
     try {
       const supabase = createClient();
-      if (process.env.NODE_ENV === "development") {
-        console.info("[auth-debug] SIGN_UP START");
-      }
       const { data, error } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
         options: {
           data: {
             full_name: `${values.firstName} ${values.lastName}`.trim(),
+            organization_name: values.organizationName.trim(),
           },
         },
       });
-      if (process.env.NODE_ENV === "development") {
-        console.info("[auth-debug] SIGN_UP RESULT", {
-          hasUser: Boolean(data.user),
-          hasSession: Boolean(data.session),
-          errorMessage: error?.message ?? null,
-          errorCode: error?.code ?? null,
-          errorStatus: error?.status ?? null,
-          errorDetails: error && "details" in error && typeof error.details === "string" ? error.details : null,
-          errorHint: error && "hint" in error && typeof error.hint === "string" ? error.hint : null,
-        });
-      }
 
       if (error) {
-        if (process.env.NODE_ENV === "development") {
-          console.info("[auth-debug] USER NOT VERIFIED; signup returned an auth error");
-          console.info("[auth-debug] SESSION NOT VERIFIED; signup returned an auth error");
-        }
-        logSupabaseError("SIGN_UP AUTH", error);
-        setDebugStatus((status) => ({
-          ...status,
-          signup: "AUTH ERROR",
-          authError: error.message,
-        }));
-        form.setError("root", {
-          message: process.env.NODE_ENV === "development"
-            ? `Auth: ${error.message}`
-            : "Registrierung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
-        });
-        return;
-      }
-
-      if (!data.user) {
-        setDebugStatus((status) => ({ ...status, signup: "AUTH ERROR", user: "FEHLER: kein User zurückgegeben" }));
         form.setError("root", {
           message: "Registrierung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
         });
         return;
       }
 
-      setDebugStatus((status) => ({ ...status, signup: "OK", user: "OK" }));
-      if (process.env.NODE_ENV === "development") {
-        console.info("[auth-debug] USER OK", { userId: `${data.user.id.slice(0, 8)}…` });
+      if (!data.user) {
+        form.setError("root", {
+          message: "Registrierung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
+        });
+        return;
       }
 
       if (!data.session) {
-        if (process.env.NODE_ENV === "development") {
-          console.info("[auth-debug] SESSION OK: no session is the expected email-confirmation path");
-          console.info("[auth-debug] SESSION MISSING; email confirmation required");
-        }
-        setDebugStatus((status) => ({ ...status, session: "E-Mail-Bestätigung erforderlich" }));
         setConfirmationRequired(true);
         return;
       }
 
-      const user = data.session.user;
-      setDebugStatus((status) => ({ ...status, session: "OK" }));
-      if (process.env.NODE_ENV === "development") {
-        console.info("[auth-debug] SESSION OK", { userId: `${user.id.slice(0, 8)}…` });
-      }
-      currentStep = "ORGANIZATION";
-      if (process.env.NODE_ENV === "development") {
-        console.info("[auth-debug] ORGANIZATION START", {
-          createdByUserId: `${user.id.slice(0, 8)}…`,
-        });
-      }
-      const { data: organization, error: organizationError } = await supabase
-        .from("organizations")
-        .insert({
-          name: values.organizationName.trim(),
-          email: values.email.trim(),
-          created_by: user.id,
-        })
-        .select("id")
-        .single();
-      if (organizationError) {
-        logSupabaseError("ORGANIZATION", organizationError);
-        setDebugStatus((status) => ({ ...status, organization: "FEHLER" }));
+      const provisioningError = await refreshData(values.organizationName);
+      if (provisioningError) {
+        if (process.env.NODE_ENV === "development") {
+          console.error("Registration succeeded, but organization provisioning failed.", provisioningError);
+        }
         form.setError("root", {
-          message: "Organisation konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+          message: process.env.NODE_ENV === "development"
+            ? `Die Registrierung war erfolgreich, aber die Organisation konnte nicht eingerichtet werden: ${provisioningError}`
+            : "Die Registrierung konnte abgeschlossen werden, aber die Organisation konnte nicht eingerichtet werden. Bitte versuchen Sie es erneut.",
         });
         return;
       }
 
-      if (process.env.NODE_ENV === "development") {
-        console.info("[auth-debug] ORGANIZATION OK", {
-          organizationId: `${organization.id.slice(0, 8)}…`,
-        });
-      }
-      setDebugStatus((status) => ({ ...status, organization: "OK" }));
-      currentStep = "MEMBERSHIP";
-      if (process.env.NODE_ENV === "development") {
-        console.info("[auth-debug] MEMBERSHIP START", {
-          organizationId: `${organization.id.slice(0, 8)}…`,
-          userId: `${user.id.slice(0, 8)}…`,
-          role: "owner",
-        });
-      }
-      const { error: membershipError } = await supabase
-        .from("organization_members")
-        .insert({
-          organization_id: organization.id,
-          user_id: user.id,
-          role: "owner",
-        });
-      if (membershipError) {
-        logSupabaseError("MEMBERSHIP", membershipError);
-        setDebugStatus((status) => ({ ...status, membership: "FEHLER" }));
-        form.setError("root", {
-          message: "Owner-Mitgliedschaft konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
-        });
-        return;
-      }
-
-      if (process.env.NODE_ENV === "development") {
-        console.info("[auth-debug] MEMBERSHIP OK");
-      }
-      setDebugStatus((status) => ({ ...status, membership: "OK" }));
-      currentStep = "SUCCESS";
-      await refreshData();
-      if (process.env.NODE_ENV === "development") {
-        console.info("[auth-debug] SIGN_UP SUCCESS");
-        console.info("[auth-debug] REDIRECT START");
-      }
-      setDebugStatus((status) => ({ ...status, redirect: "router.replace(/dashboard) aufgerufen" }));
       router.replace("/dashboard");
       router.refresh();
     } catch (error) {
-      if (process.env.NODE_ENV === "development") {
-        console.error(`[auth-debug] ${currentStep} UNEXPECTED ERROR`, {
-          message: error instanceof Error ? error.message : "Unknown error",
-        });
-      }
-      setDebugStatus((status) => ({
-        ...status,
-        ...(currentStep === "SIGN_UP" ? { signup: "FEHLER" } : {}),
-        ...(currentStep === "ORGANIZATION" ? { organization: "FEHLER" } : {}),
-        ...(currentStep === "MEMBERSHIP" ? { membership: "FEHLER" } : {}),
-        ...(currentStep === "SUCCESS" ? { redirect: "FEHLER" } : {}),
-      }));
       form.setError("root", {
         message: error instanceof Error
-          ? error.message
+          ? process.env.NODE_ENV === "development"
+            ? error.message
+            : "Die Registrierung konnte abgeschlossen werden, aber die Organisation konnte nicht eingerichtet werden. Bitte versuchen Sie es erneut."
           : "Registrierung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
       });
     }
@@ -271,18 +117,6 @@ export default function RegisterPage() {
 
           <div className="p-6 md:p-10">
             <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              {process.env.NODE_ENV === "development" ? (
-                <section aria-label="Registrierungs-Diagnose" className="space-y-1 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-                  <p className="font-semibold">Registrierungs-Diagnose (nur Development)</p>
-                  <p>SIGN_UP: {debugStatus.signup}</p>
-                  <p>USER: {debugStatus.user}</p>
-                  <p>SESSION: {debugStatus.session}</p>
-                  <p>ORGANIZATION: {debugStatus.organization}</p>
-                  <p>MEMBERSHIP: {debugStatus.membership}</p>
-                  <p>REDIRECT: {debugStatus.redirect}</p>
-                  {debugStatus.authError ? <p>AUTH ERROR: {debugStatus.authError}</p> : null}
-                </section>
-              ) : null}
               <Input label="Firmenname" autoComplete="organization" placeholder="SauberPlus Reinigung" {...form.register("organizationName")} />
               {form.formState.errors.organizationName ? <p className="text-xs text-rose-600">{form.formState.errors.organizationName.message}</p> : null}
 

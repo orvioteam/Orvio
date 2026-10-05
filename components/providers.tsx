@@ -95,7 +95,13 @@ type SupabaseUserLike = {
     first_name?: string;
     last_name?: string;
     full_name?: string;
+    organization_name?: string;
   };
+};
+
+type OrganizationDataResult = {
+  state: AppState;
+  appError: string | null;
 };
 
 const mapSupabaseUser = (user: SupabaseUserLike, organizationId: string): RegisteredUser => {
@@ -119,7 +125,7 @@ interface AppContextValue {
   activeOrganization: Organization | null;
   isReady: boolean;
   appError: string | null;
-  refreshData: () => Promise<void>;
+  refreshData: (organizationName?: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   saveCustomer: (input: CustomerFormInput, customerId?: string) => Promise<Customer>;
   deleteCustomer: (customerId: string) => Promise<void>;
@@ -163,61 +169,77 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
     return client;
   }, [client]);
 
-  const loadOrganizationData = useCallback(async (user: SupabaseUserLike) => {
-    const client = requireClient();
-    const { data: membership, error: memberError } = await client
-      .from("organization_members")
-      .select("id, organization_id, role, created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+  const loadOrganizationData = useCallback((user: SupabaseUserLike, preferredOrganizationName?: string) => {
+    const load = async (): Promise<OrganizationDataResult> => {
+      const client = requireClient();
+      const displayName = user.user_metadata?.full_name?.trim()
+        || user.email?.split("@")[0]
+        || "Benutzer";
+      const organizationName = preferredOrganizationName?.trim()
+        || user.user_metadata?.organization_name?.trim()
+        || `${displayName} Organisation`;
+      const { data: organizationId, error: provisionError } = await client.rpc(
+        "ensure_current_user_organization",
+        { p_organization_name: organizationName },
+      );
 
-    if (memberError) throw new Error(`Mitgliedschaft konnte nicht geladen werden: ${memberError.message}`);
-    if (!membership) {
-      const registeredUser = mapSupabaseUser(user, "");
+      if (provisionError) {
+        throw new Error(`Organisation konnte nicht eingerichtet werden: ${provisionError.message}`);
+      }
+      if (!organizationId) {
+        throw new Error("Provisionierung hat keine Organisation zurückgegeben.");
+      }
+
+      const { data: membership, error: memberError } = await client
+        .from("organization_members")
+        .select("id, organization_id, role, created_at")
+        .eq("organization_id", organizationId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (memberError) {
+        throw new Error(`Owner-Mitgliedschaft konnte nicht geladen werden: ${memberError.message}`);
+      }
+
+      const organizationIdString = String(organizationId);
+      const [organizationResult, customersResult, employeesResult, jobsResult] = await Promise.all([
+        client.from("organizations").select("*").eq("id", organizationIdString).single(),
+        client.from("customers").select("*").eq("organization_id", organizationIdString).order("created_at", { ascending: false }),
+        client.from("employees").select("*").eq("organization_id", organizationIdString).order("last_name", { ascending: true }),
+        client.from("jobs").select("*").eq("organization_id", organizationIdString).order("date", { ascending: true }).order("start_time", { ascending: true }),
+      ]);
+
+      if (organizationResult.error) throw new Error(`Organisation konnte nicht geladen werden: ${organizationResult.error.message}`);
+      if (customersResult.error) throw new Error(`Kunden konnten nicht geladen werden: ${customersResult.error.message}`);
+      if (employeesResult.error) throw new Error(`Mitarbeiter konnten nicht geladen werden: ${employeesResult.error.message}`);
+      if (jobsResult.error) throw new Error(`Aufträge konnten nicht geladen werden: ${jobsResult.error.message}`);
+      const organization = mapOrganizationRow(organizationResult.data as Record<string, unknown>);
+      const registeredUser = mapSupabaseUser(user, organizationIdString);
       return {
-        state: { ...emptyState, users: [registeredUser], currentUserId: user.id },
-        appError: "Für dieses Benutzerkonto ist noch keine Organisation eingerichtet.",
+        state: {
+          organizations: [organization],
+          organizationMembers: [{
+            id: String(membership.id),
+            organizationId: organizationIdString,
+            userId: user.id,
+            role: membership.role as "owner" | "manager" | "admin",
+            createdAt: String(membership.created_at ?? ""),
+          }],
+          customers: (customersResult.data ?? []).map((row) => mapCustomerRow(row as Record<string, unknown>)),
+          employees: (employeesResult.data ?? []).map((row) => mapEmployeeRow(row as Record<string, unknown>)),
+          jobs: (jobsResult.data ?? []).map((row) => mapJobRow(row as Record<string, unknown>)),
+          users: [registeredUser],
+          currentUserId: user.id,
+          activeOrganizationId: organizationIdString,
+        },
+        appError: null,
       };
-    }
-
-    const organizationId = String(membership.organization_id);
-    const [organizationResult, customersResult, employeesResult, jobsResult] = await Promise.all([
-      client.from("organizations").select("*").eq("id", organizationId).single(),
-      client.from("customers").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
-      client.from("employees").select("*").eq("organization_id", organizationId).order("last_name", { ascending: true }),
-      client.from("jobs").select("*").eq("organization_id", organizationId).order("date", { ascending: true }).order("start_time", { ascending: true }),
-    ]);
-
-    if (organizationResult.error) throw new Error(`Organisation konnte nicht geladen werden: ${organizationResult.error.message}`);
-    if (customersResult.error) throw new Error(`Kunden konnten nicht geladen werden: ${customersResult.error.message}`);
-    if (employeesResult.error) throw new Error(`Mitarbeiter konnten nicht geladen werden: ${employeesResult.error.message}`);
-    if (jobsResult.error) throw new Error(`Aufträge konnten nicht geladen werden: ${jobsResult.error.message}`);
-    const organization = mapOrganizationRow(organizationResult.data as Record<string, unknown>);
-    const registeredUser = mapSupabaseUser(user, organizationId);
-    return {
-      state: {
-        organizations: [organization],
-        organizationMembers: [{
-          id: String(membership.id),
-          organizationId,
-          userId: user.id,
-          role: membership.role as "owner" | "manager" | "admin",
-          createdAt: String(membership.created_at ?? ""),
-        }],
-        customers: (customersResult.data ?? []).map((row) => mapCustomerRow(row as Record<string, unknown>)),
-        employees: (employeesResult.data ?? []).map((row) => mapEmployeeRow(row as Record<string, unknown>)),
-        jobs: (jobsResult.data ?? []).map((row) => mapJobRow(row as Record<string, unknown>)),
-        users: [registeredUser],
-        currentUserId: user.id,
-        activeOrganizationId: organizationId,
-      },
-      appError: null,
     };
+
+    return load();
   }, [requireClient]);
 
-  const refreshData = useCallback(async () => {
+  const refreshData = useCallback(async (organizationName?: string) => {
     try {
       const client = requireClient();
       const { data, error } = await client.auth.getUser();
@@ -227,15 +249,27 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
         setSupabaseUser(null);
         setAppError(null);
         setIsReady(true);
-        return;
+        return organizationName
+          ? "Die authentifizierte Sitzung konnte nach der Registrierung nicht geladen werden."
+          : null;
       }
       setSupabaseUser(data.user);
-      const result = await loadOrganizationData(data.user);
+      const result = await loadOrganizationData(data.user, organizationName);
       setState(result.state);
       setAppError(result.appError);
       setIsReady(true);
+      return result.appError;
     } catch (error) {
-      setAppError(errorMessage(error));
+      const message = errorMessage(error);
+      setAppError(
+        process.env.NODE_ENV === "development"
+          ? message
+          : "Ihre Organisation konnte nicht eingerichtet werden. Bitte versuchen Sie es erneut.",
+      );
+      setIsReady(true);
+      return process.env.NODE_ENV === "development"
+        ? message
+        : "Ihre Organisation konnte nicht eingerichtet werden. Bitte versuchen Sie es erneut.";
     }
   }, [loadOrganizationData, requireClient]);
 
@@ -268,7 +302,13 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
         setAppError(result.appError);
       })
       .catch((error: unknown) => {
-        if (isActive) setAppError(errorMessage(error));
+        if (isActive) {
+          setAppError(
+            process.env.NODE_ENV === "development"
+              ? errorMessage(error)
+              : "Ihre Organisation konnte nicht eingerichtet werden. Bitte versuchen Sie es erneut.",
+          );
+        }
       })
       .finally(() => {
         if (isActive) setIsReady(true);
@@ -291,6 +331,7 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
     if (error) throw new Error(error.message || "Abmeldung fehlgeschlagen.");
     setState(emptyState);
     setSupabaseUser(null);
+    setAppError(null);
     setIsReady(true);
   }, [requireClient]);
 
