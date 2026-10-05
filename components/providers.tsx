@@ -320,9 +320,24 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     try {
       const client = requireClient();
+      if (process.env.NODE_ENV === "development") {
+        console.info("[auth-debug] SIGN_IN: invoking signInWithPassword");
+      }
       const { data, error } = await client.auth.signInWithPassword({ email, password });
+      if (process.env.NODE_ENV === "development") {
+        console.info("[auth-debug] SIGN_IN: signInWithPassword result", {
+          userPresent: Boolean(data.user),
+          userId: data.user?.id.slice(0, 8) ?? null,
+          sessionPresent: Boolean(data.session),
+          errorMessage: error?.message ?? null,
+        });
+      }
       if (error) {
-        console.error("Supabase rejected the CleanFlow sign-in request.", error);
+        if (process.env.NODE_ENV === "development") {
+          console.error("[auth-debug] SIGN_IN: Supabase rejected the credentials", {
+            errorMessage: error.message,
+          });
+        }
         const message = error.code === "email_not_confirmed"
           ? "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse."
           : error.code === "invalid_credentials"
@@ -343,7 +358,11 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
       return user;
     } catch (hydrateError) {
       if (hydrateError instanceof AuthFlowError) throw hydrateError;
-      console.error("CleanFlow sign-in could not be completed.", hydrateError);
+      if (process.env.NODE_ENV === "development") {
+        console.error("[auth-debug] SIGN_IN: post-auth verification or hydration failed", {
+          errorMessage: errorMessage(hydrateError),
+        });
+      }
       setAppError(null);
       throw new AuthFlowError("Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.");
     }
