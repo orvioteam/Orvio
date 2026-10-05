@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { PencilLine, Plus, Search, Trash2 } from "lucide-react";
-import { Button, Card, EmptyState, Input, PageHeader } from "@/components/ui";
+import { PencilLine, Plus, Search } from "lucide-react";
+import { Button, Card, ConfirmDelete, EmptyState, Input, PageHeader } from "@/components/ui";
 import { useApp } from "@/components/providers";
 import type { CustomerFormInput } from "@/lib/types";
 
@@ -69,8 +69,7 @@ export default function CustomersPage() {
     setFormOpen(true);
   };
 
-  const handleDelete = async (customerId: string, name: string) => {
-    if (!window.confirm(`Kunde "${name}" wirklich löschen? Zugehörige Aufträge verhindern das Löschen.`)) return;
+  const handleDelete = async (customerId: string) => {
     setActionError(null);
     setBusyId(customerId);
     try {
@@ -86,10 +85,10 @@ export default function CustomersPage() {
     <div className="min-w-0">
       <PageHeader title="Kunden" description="Kundenkontakte und zugehörige Aufträge Ihrer Organisation." action={<Button type="button" onClick={openNewCustomer}><Plus className="mr-2 h-4 w-4" /> Kunde hinzufügen</Button>} />
 
-      <label className="relative mb-5 block">
+      <label className="relative mb-5 block max-w-xl">
         <span className="sr-only">Kunden suchen</span>
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, Firma, Ort oder Kontakt suchen..." className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, Firma, Ort oder Kontakt suchen..." className="min-h-11 w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100" />
       </label>
 
       {actionError ? <p role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{actionError}</p> : null}
@@ -121,10 +120,12 @@ export default function CustomersPage() {
       ) : null}
 
       {filteredCustomers.length === 0 ? (
-        <EmptyState title={state.customers.length === 0 ? "Noch keine Kunden vorhanden" : "Keine passenden Kunden"} description={state.customers.length === 0 ? "Erfassen Sie einen Kunden, um anschließend Aufträge für ihn zu planen." : "Prüfen Sie die Suchanfrage oder löschen Sie den Filter."} action={state.customers.length === 0 ? undefined : <Button type="button" variant="secondary" onClick={() => setQuery("")}>Suche zurücksetzen</Button>} />
+        <EmptyState title={state.customers.length === 0 ? "Noch keine Kunden" : "Keine passenden Kunden"} description={state.customers.length === 0 ? "Fügen Sie Ihren ersten Kunden hinzu, um Aufträge planen zu können." : "Prüfen Sie Ihre Suche oder setzen Sie sie zurück."} action={state.customers.length === 0
+          ? <Button type="button" onClick={openNewCustomer}><Plus className="mr-2 h-4 w-4" /> Ersten Kunden hinzufügen</Button>
+          : <Button type="button" variant="secondary" onClick={() => setQuery("")}>Suche zurücksetzen</Button>} />
       ) : (
         <>
-          <div className="space-y-3 xl:hidden">
+          <div className="space-y-3 lg:hidden">
             {filteredCustomers.map((customer) => (
               <Card key={customer.id} className="space-y-3 p-4">
                 <div className="min-w-0"><p className="break-words font-semibold">{customer.companyName || customer.name}</p>{customer.companyName ? <p className="text-sm text-slate-500">{customer.name}</p> : <p className="text-sm text-slate-500">Privatkunde</p>}</div>
@@ -135,18 +136,18 @@ export default function CustomersPage() {
                 </div>
                 <div className="flex gap-2 border-t border-slate-100 pt-3">
                   <Button type="button" variant="secondary" className="min-h-11 flex-1" onClick={() => startEdit(customer.id)}><PencilLine className="mr-2 h-4 w-4" /> Bearbeiten</Button>
-                  <Button type="button" variant="danger" className="min-h-11" disabled={busyId === customer.id} onClick={() => void handleDelete(customer.id, customer.name)} aria-label={`Kunde ${customer.name} löschen`}><Trash2 className="h-4 w-4" /></Button>
+                  <ConfirmDelete label={customer.name} disabled={busyId === customer.id} onConfirm={() => void handleDelete(customer.id)} />
                 </div>
               </Card>
             ))}
           </div>
-          <Card className="hidden overflow-hidden p-0 xl:block">
+          <Card className="hidden overflow-hidden p-0 lg:block">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="bg-slate-50 text-slate-600"><tr>{["Kunde", "Telefon", "E-Mail", "Adresse", "Aktionen"].map((heading) => <th key={heading} className="px-4 py-3 font-medium">{heading}</th>)}</tr></thead>
-                <tbody>{filteredCustomers.map((customer) => <tr key={customer.id} className="border-t border-slate-200">
+                <thead className="bg-[#f8f9f7] text-xs uppercase tracking-wide text-slate-500"><tr>{["Kunde", "Telefon", "E-Mail", "Adresse", "Aktionen"].map((heading) => <th key={heading} className="px-4 py-3 font-medium">{heading}</th>)}</tr></thead>
+                <tbody>{filteredCustomers.map((customer) => <tr key={customer.id} className="border-t border-slate-100 hover:bg-slate-50/70">
                   <td className="px-4 py-4 font-medium">{customer.companyName || customer.name}<span className="block text-xs text-slate-500">{customer.companyName ? customer.name : "Privatkunde"}</span></td><td className="px-4 py-4">{customer.phone || "—"}</td><td className="px-4 py-4">{customer.email || "—"}</td><td className="px-4 py-4">{[customer.address, customer.postalCode, customer.city].filter(Boolean).join(", ") || "—"}</td>
-                  <td className="px-4 py-4"><div className="flex justify-end gap-2"><button type="button" onClick={() => startEdit(customer.id)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100" aria-label={`Kunde ${customer.name} bearbeiten`}><PencilLine className="h-4 w-4" /></button><button type="button" disabled={busyId === customer.id} onClick={() => void handleDelete(customer.id, customer.name)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50" aria-label={`Kunde ${customer.name} löschen`}><Trash2 className="h-4 w-4" /></button></div></td>
+                  <td className="px-4 py-4"><div className="flex justify-end gap-2"><button type="button" onClick={() => startEdit(customer.id)} className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100" aria-label={`Kunde ${customer.name} bearbeiten`}><PencilLine className="h-4 w-4" /></button><ConfirmDelete label={customer.name} disabled={busyId === customer.id} onConfirm={() => void handleDelete(customer.id)} /></div></td>
                 </tr>)}</tbody>
               </table>
             </div>

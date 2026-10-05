@@ -3,8 +3,8 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
-import { PencilLine, Plus, Search, Trash2 } from "lucide-react";
-import { Badge, Button, Card, EmptyState, Input, PageHeader, Select } from "@/components/ui";
+import { PencilLine, Plus, Search } from "lucide-react";
+import { Badge, Button, Card, ConfirmDelete, EmptyState, Input, PageHeader, Select } from "@/components/ui";
 import { useApp } from "@/components/providers";
 import type { JobFormInput, JobStatus } from "@/lib/types";
 
@@ -157,8 +157,7 @@ export default function JobsPage() {
     }
   };
 
-  const handleDelete = async (jobId: string, title: string) => {
-    if (!window.confirm(`Auftrag "${title}" wirklich löschen?`)) return;
+  const handleDelete = async (jobId: string) => {
     setActionError(null);
     setBusyJobId(jobId);
     try {
@@ -178,21 +177,21 @@ export default function JobsPage() {
         action={<Button type="button" onClick={openNewJob}><Plus className="mr-2 h-4 w-4" /> Auftrag hinzufügen</Button>}
       />
 
-      <div className="mb-4">
+      <div className="mb-4 max-w-xl">
         <label className="relative block">
           <span className="sr-only">Aufträge suchen</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input value={query} onChange={(event) => setLocalQuery(event.target.value)} placeholder="Aufträge suchen..." className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />
+          <input value={query} onChange={(event) => setLocalQuery(event.target.value)} placeholder="Aufträge suchen..." className="min-h-11 w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100" />
         </label>
       </div>
       <div role="group" aria-label="Aufträge nach Status filtern" className="mb-5 flex flex-wrap gap-2">
         {([
           ["all", "Alle"],
           ["scheduled", "Geplant"],
-          ["in_progress", "In Bearbeitung"],
-          ["completed", "Abgeschlossen"],
+          ["in_progress", "In Arbeit"],
+          ["completed", "Erledigt"],
         ] as const).map(([value, label]) => (
-          <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={`min-h-11 rounded-full border px-4 text-sm font-medium ${statusFilter === value ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>{label}</button>
+          <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={`min-h-10 rounded-md border px-3.5 text-sm font-medium transition-colors ${statusFilter === value ? "border-[#176b4a] bg-[#176b4a] text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>{label}</button>
         ))}
       </div>
 
@@ -217,15 +216,15 @@ export default function JobsPage() {
                 <option value="">Bitte auswählen</option>
                 {state.customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}{customer.companyName ? ` · ${customer.companyName}` : " · Privat"}</option>)}
               </Select>
-              <Select label="Mitarbeiter" required value={draft.employeeId} onChange={(event) => setDraft((value) => ({ ...value, employeeId: event.target.value }))}>
-                <option value="">Bitte auswählen</option>
-                {state.employees.filter((employee) => employee.active || employee.id === draft.employeeId).map((employee) => <option key={employee.id} value={employee.id}>{employee.firstName} {employee.lastName}{employee.active ? "" : " (inaktiv)"}</option>)}
-              </Select>
               <Input label="Datum" type="date" required value={draft.date} onChange={(event) => setDraft((value) => ({ ...value, date: event.target.value }))} />
               <div className="grid grid-cols-2 gap-3">
                 <Input label="Startzeit" type="time" required value={draft.startTime} onChange={(event) => setDraft((value) => ({ ...value, startTime: event.target.value }))} />
                 <Input label="Endzeit" type="time" value={draft.endTime} onChange={(event) => setDraft((value) => ({ ...value, endTime: event.target.value }))} />
               </div>
+              <Select label="Mitarbeiter" required value={draft.employeeId} onChange={(event) => setDraft((value) => ({ ...value, employeeId: event.target.value }))}>
+                <option value="">Bitte auswählen</option>
+                {state.employees.filter((employee) => employee.active || employee.id === draft.employeeId).map((employee) => <option key={employee.id} value={employee.id}>{employee.firstName} {employee.lastName}{employee.active ? "" : " (inaktiv)"}</option>)}
+              </Select>
               <Input label="Einsatzort / Adresse" value={draft.address} onChange={(event) => setDraft((value) => ({ ...value, address: event.target.value }))} />
               <label className="space-y-2 text-sm font-medium text-slate-700 md:col-span-2">
                 <span>Notizen</span>
@@ -247,12 +246,14 @@ export default function JobsPage() {
       {filteredJobs.length === 0 ? (
         <EmptyState
           title={state.jobs.length === 0 ? "Noch keine Aufträge" : "Keine passenden Aufträge"}
-          description={state.jobs.length === 0 ? "Erstellen Sie einen Auftrag, um Einsätze Ihrer Organisation zu planen." : "Passen Sie Suche oder Statusfilter an."}
-          action={state.jobs.length === 0 ? undefined : <Button type="button" variant="secondary" onClick={() => { setLocalQuery(""); setStatusFilter("all"); }}>Filter zurücksetzen</Button>}
+          description={state.jobs.length === 0 ? "Erstellen Sie Ihren ersten Auftrag, um einen Einsatz zu planen." : "Passen Sie Suche oder Statusfilter an."}
+          action={state.jobs.length === 0
+            ? <Button type="button" onClick={openNewJob}><Plus className="mr-2 h-4 w-4" /> Auftrag hinzufügen</Button>
+            : <Button type="button" variant="secondary" onClick={() => { setLocalQuery(""); setStatusFilter("all"); }}>Filter zurücksetzen</Button>}
         />
       ) : (
         <>
-          <div className="space-y-3 xl:hidden">
+          <div className="space-y-3 lg:hidden">
             {filteredJobs.map((job) => {
               const customer = state.customers.find((entry) => entry.id === job.customerId);
               const employee = state.employees.find((entry) => entry.id === job.employeeId);
@@ -272,27 +273,27 @@ export default function JobsPage() {
                   </Select>
                   <div className="flex gap-2 border-t border-slate-100 pt-3">
                     <Button type="button" variant="secondary" className="min-h-11 flex-1" onClick={() => startEdit(job.id)}><PencilLine className="mr-2 h-4 w-4" /> Bearbeiten</Button>
-                    <Button type="button" variant="danger" className="min-h-11" disabled={busyJobId === job.id} onClick={() => void handleDelete(job.id, job.title)} aria-label={`Auftrag ${job.title} löschen`}><Trash2 className="h-4 w-4" /></Button>
+                    <ConfirmDelete label={job.title} disabled={busyJobId === job.id} onConfirm={() => void handleDelete(job.id)} />
                   </div>
                 </Card>
               );
             })}
           </div>
-          <Card className="hidden overflow-hidden p-0 xl:block">
+          <Card className="hidden overflow-hidden p-0 lg:block">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[800px] text-left text-sm">
-                <thead className="bg-slate-50 text-slate-600"><tr>{["Datum", "Zeit", "Kunde", "Mitarbeiter", "Status", "Aktionen"].map((heading) => <th key={heading} className="px-4 py-3 font-medium">{heading}</th>)}</tr></thead>
+                <thead className="bg-[#f8f9f7] text-xs uppercase tracking-wide text-slate-500"><tr>{["Datum", "Zeit", "Kunde", "Mitarbeiter", "Status", "Aktionen"].map((heading) => <th key={heading} className="px-4 py-3 font-medium">{heading}</th>)}</tr></thead>
                 <tbody>{filteredJobs.map((job) => {
                   const customer = state.customers.find((entry) => entry.id === job.customerId);
                   const employee = state.employees.find((entry) => entry.id === job.employeeId);
-                  return <tr key={job.id} className="border-t border-slate-200 align-middle">
+                  return <tr key={job.id} className="border-t border-slate-100 align-middle hover:bg-slate-50/70">
                     <td className="px-4 py-4">{job.date}</td><td className="px-4 py-4">{job.startTime}{job.endTime ? ` – ${job.endTime}` : ""}</td>
                     <td className="px-4 py-4">{customer?.companyName || customer?.name || "Kunde nicht verfügbar"}</td>
                     <td className="px-4 py-4">{employee ? `${employee.firstName} ${employee.lastName}` : "Nicht zugewiesen"}</td>
                     <td className="px-4 py-4"><Select aria-label={`Status für ${job.title}`} value={job.status} disabled={busyJobId === job.id} onChange={(event) => void changeStatus(job.id, event.target.value as JobStatus)} className="min-w-40"><option value="scheduled">Geplant</option><option value="in_progress">In Bearbeitung</option><option value="completed">Abgeschlossen</option><option value="cancelled">Storniert</option></Select></td>
                     <td className="px-4 py-4"><div className="flex justify-end gap-2">
                       <button type="button" onClick={() => startEdit(job.id)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100" aria-label={`Auftrag ${job.title} bearbeiten`}><PencilLine className="h-4 w-4" /></button>
-                      <button type="button" disabled={busyJobId === job.id} onClick={() => void handleDelete(job.id, job.title)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50" aria-label={`Auftrag ${job.title} löschen`}><Trash2 className="h-4 w-4" /></button>
+                      <ConfirmDelete label={job.title} disabled={busyJobId === job.id} onConfirm={() => void handleDelete(job.id)} />
                     </div></td>
                   </tr>;
                 })}</tbody>

@@ -37,6 +37,11 @@ export default function DashboardPage() {
 
   return (
     <div className="min-w-0">
+      {dateKey === todayKey ? (
+        <p className="mb-2 text-sm font-medium text-[#176b4a]">
+          {new Date().getHours() < 12 ? "Guten Morgen" : new Date().getHours() < 18 ? "Guten Tag" : "Guten Abend"}
+        </p>
+      ) : null}
       <PageHeader
         title={dateKey === todayKey ? "Heute" : "Tagesplan"}
         description={format(selectedDate, "EEEE, d. MMMM yyyy", { locale: de })}
@@ -58,6 +63,11 @@ export default function DashboardPage() {
         <EmptyState
           title={dateKey === todayKey ? "Heute sind keine Aufträge geplant" : "Keine Aufträge an diesem Tag"}
           description="Für diesen Tag sind keine Einsätze geplant."
+          action={dateKey === todayKey ? (
+            <Button type="button" onClick={() => router.push(`/jobs?new=1&date=${dateKey}`)}>
+              <Plus className="mr-2 h-4 w-4" /> Ersten Auftrag erstellen
+            </Button>
+          ) : undefined}
         />
       ) : (
         <div className="space-y-2">
@@ -70,7 +80,8 @@ export default function DashboardPage() {
                   <p className="w-16 shrink-0 text-lg font-semibold tabular-nums text-slate-900">{job.startTime}</p>
                   <div className="min-w-0 flex-1">
                     <p className="break-words font-semibold text-slate-900">{customer?.companyName || customer?.name || "Kunde nicht verfügbar"}</p>
-                    <p className="mt-1 break-words text-sm text-slate-600">{employee ? `${employee.firstName} ${employee.lastName}` : "Nicht zugewiesen"}</p>
+                    <p className="mt-1 break-words text-sm text-slate-600">{job.title}</p>
+                    <p className="mt-1 break-words text-sm text-slate-500">{[job.address || customer?.address, employee ? `${employee.firstName} ${employee.lastName}` : "Nicht zugewiesen"].filter(Boolean).join(" · ")}</p>
                   </div>
                   <Badge status={job.status}>{statusLabel[job.status]}</Badge>
                 </div>

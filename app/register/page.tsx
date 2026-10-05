@@ -6,7 +6,7 @@ import { useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowRight, Building2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useApp } from "@/components/providers";
 import { createClient } from "@/lib/supabase/client";
 import { Button, Input } from "@/components/ui";
@@ -138,68 +138,76 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
-      <div className="w-full max-w-5xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-        <div className="grid md:grid-cols-2">
-          <div className="border-b border-slate-200 bg-slate-50 p-8 md:border-r md:border-b-0">
-            <div className="mb-8 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-lg font-bold text-white">C</div>
-              <p className="text-xl font-semibold text-slate-900">CleanFlow</p>
-            </div>
-            <div className="space-y-4">
-              <div className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-emerald-700">
-                <Building2 className="mr-2 h-4 w-4" />
-                Organisation gründen
-              </div>
-              <h1 className="text-4xl font-semibold text-slate-900">Konto erstellen</h1>
-              <p className="text-slate-600">Richten Sie Ihre Organisation ein und beginnen Sie mit der modernen Planung Ihrer Reinigungsfirma.</p>
-            </div>
-          </div>
-
-          <div className="p-6 md:p-10">
-            <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <Input label="Firmenname" autoComplete="organization" placeholder="SauberPlus Reinigung" {...form.register("organizationName")} />
-              {form.formState.errors.organizationName ? <p className="text-xs text-rose-600">{form.formState.errors.organizationName.message}</p> : null}
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Input label="Vorname" autoComplete="given-name" placeholder="Anna" {...form.register("firstName")} aria-invalid={Boolean(form.formState.errors.firstName)} />
-                  {form.formState.errors.firstName ? <p className="mt-1 text-xs text-rose-600">{form.formState.errors.firstName.message}</p> : null}
-                </div>
-                <div>
-                  <Input label="Nachname" autoComplete="family-name" placeholder="Müller" {...form.register("lastName")} aria-invalid={Boolean(form.formState.errors.lastName)} />
-                  {form.formState.errors.lastName ? <p className="mt-1 text-xs text-rose-600">{form.formState.errors.lastName.message}</p> : null}
-                </div>
-              </div>
-
-              <Input label="E-Mail" type="email" autoComplete="email" placeholder="name@firma.ch" {...form.register("email")} aria-invalid={Boolean(form.formState.errors.email)} />
-              {form.formState.errors.email ? <p className="text-xs text-rose-600">{form.formState.errors.email.message}</p> : null}
-
-              <Input label="Passwort" type="password" autoComplete="new-password" placeholder="Mindestens 8 Zeichen" {...form.register("password")} aria-invalid={Boolean(form.formState.errors.password)} />
-              {form.formState.errors.password ? <p className="text-xs text-rose-600">{form.formState.errors.password.message}</p> : null}
-
-              {confirmationRequired ? (
-                <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                  Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse.
-                </p>
-              ) : null}
-
-              {form.formState.errors.root ? (
-                <p role="alert" className="whitespace-pre-line rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{form.formState.errors.root.message}</p>
-              ) : null}
-
-              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Konto wird erstellt…" : "Registrieren"}
-                {!form.formState.isSubmitting ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
-              </Button>
-            </form>
-
-            <p className="mt-6 text-center text-sm text-slate-600">
-              Bereits ein Konto? <Link href="/login" className="font-semibold text-emerald-600 hover:text-emerald-500">Anmelden</Link>
-            </p>
-          </div>
+    <main className="grid min-h-screen bg-white md:grid-cols-2">
+      <section className="flex min-h-[30vh] flex-col justify-between border-b border-slate-200 bg-[#f4f5f1] px-6 py-6 sm:px-10 md:min-h-screen md:border-b-0 md:border-r md:px-12 md:py-10 lg:px-20">
+        <Link href="/" className="flex w-fit items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[#176b4a] text-xs font-semibold tracking-wide text-white">CF</span>
+          <span className="text-base font-semibold tracking-tight text-slate-900">CleanFlow</span>
+        </Link>
+        <div className="max-w-md py-8 md:py-0">
+          <p className="mb-4 text-xs font-medium uppercase tracking-[0.16em] text-[#176b4a]">Einfach organisiert</p>
+          <h1 className="text-3xl font-semibold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">Aufträge einfach planen.</h1>
+          <p className="mt-5 max-w-sm text-base leading-7 text-slate-600">Die Einsatzplanung für Reinigungsunternehmen. Kunden, Mitarbeitende und Aufträge an einem Ort.</p>
         </div>
-      </div>
+        <p className="hidden text-xs text-slate-500 md:block">Ruhig planen. Verlässlich arbeiten.</p>
+      </section>
+
+      <section className="flex items-center justify-center px-5 py-10 sm:px-10 md:px-12 lg:px-16">
+        <div className="w-full max-w-md">
+          <div className="mb-7">
+            <p className="text-sm font-medium text-[#176b4a]">CleanFlow starten</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Konto erstellen</h2>
+            <p className="mt-2 text-sm text-slate-500">Erstellen Sie Ihr Konto und organisieren Sie Ihre Aufträge einfacher.</p>
+          </div>
+
+          <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div>
+              <Input label="Firmenname" autoComplete="organization" placeholder="Name Ihres Unternehmens" {...form.register("organizationName")} />
+              {form.formState.errors.organizationName ? <p className="mt-1.5 text-xs text-rose-700">{form.formState.errors.organizationName.message}</p> : null}
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Input label="Vorname" autoComplete="given-name" placeholder="Vorname" {...form.register("firstName")} aria-invalid={Boolean(form.formState.errors.firstName)} />
+                {form.formState.errors.firstName ? <p className="mt-1.5 text-xs text-rose-700">{form.formState.errors.firstName.message}</p> : null}
+              </div>
+              <div>
+                <Input label="Nachname" autoComplete="family-name" placeholder="Nachname" {...form.register("lastName")} aria-invalid={Boolean(form.formState.errors.lastName)} />
+                {form.formState.errors.lastName ? <p className="mt-1.5 text-xs text-rose-700">{form.formState.errors.lastName.message}</p> : null}
+              </div>
+            </div>
+
+            <div>
+              <Input label="E-Mail" type="email" autoComplete="email" placeholder="name@firma.ch" {...form.register("email")} aria-invalid={Boolean(form.formState.errors.email)} />
+              {form.formState.errors.email ? <p className="mt-1.5 text-xs text-rose-700">{form.formState.errors.email.message}</p> : null}
+            </div>
+
+            <div>
+              <Input label="Passwort" type="password" autoComplete="new-password" placeholder="Mindestens 8 Zeichen" {...form.register("password")} aria-invalid={Boolean(form.formState.errors.password)} />
+              {form.formState.errors.password ? <p className="mt-1.5 text-xs text-rose-700">{form.formState.errors.password.message}</p> : null}
+            </div>
+
+            {confirmationRequired ? (
+              <p role="status" className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
+                Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse.
+              </p>
+            ) : null}
+
+            {form.formState.errors.root ? (
+              <p role="alert" className="whitespace-pre-line rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{form.formState.errors.root.message}</p>
+            ) : null}
+
+            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? "Konto wird erstellt…" : "Konto erstellen"}
+              {!form.formState.isSubmitting ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
+            </Button>
+          </form>
+
+          <p className="mt-7 border-t border-slate-200 pt-5 text-center text-sm text-slate-600">
+            Bereits ein Konto? <Link href="/login" className="font-medium text-[#176b4a] hover:underline">Anmelden</Link>
+          </p>
+        </div>
+      </section>
     </main>
   );
 }

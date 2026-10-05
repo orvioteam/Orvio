@@ -2,12 +2,12 @@ import Link from "next/link";
 
 export default function NotFound() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-600">404</p>
-        <h1 className="mt-4 text-3xl font-semibold text-slate-900">Seite nicht gefunden</h1>
-        <p className="mt-3 text-slate-600">Die gewünschte Seite existiert nicht oder wurde verschoben.</p>
-        <Link href="/dashboard" className="mt-6 inline-flex rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">
+    <main className="flex min-h-screen items-center justify-center bg-[#f7f7f4] p-5">
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-7 text-center sm:p-10">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#176b4a]">404</p>
+        <h1 className="mt-4 text-2xl font-semibold tracking-tight text-slate-900">Seite nicht gefunden</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-600">Die gewünschte Seite existiert nicht oder wurde verschoben.</p>
+        <Link href="/dashboard" className="mt-6 inline-flex min-h-11 items-center rounded-md bg-[#176b4a] px-4 py-2 text-sm font-medium text-white hover:bg-[#11563b]">
           Zurück zum Dashboard
         </Link>
       </div>

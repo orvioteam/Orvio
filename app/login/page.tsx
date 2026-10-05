@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -60,75 +60,66 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
-      <div className="w-full max-w-5xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-        <div className="grid md:grid-cols-2">
-          <div className="hidden bg-slate-900 p-10 text-white md:flex md:flex-col md:justify-between">
-            <div>
-              <div className="mb-8 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500 text-lg font-bold text-white">C</div>
-                <p className="text-xl font-semibold">CleanFlow</p>
-              </div>
-              <div className="space-y-4">
-                <h1 className="text-4xl font-semibold leading-tight">Willkommen zurück</h1>
-                <p className="max-w-sm text-sm text-slate-300">
-                  Verwalten Sie Aufträge, Mitarbeiter und Kunden ganz einfach – mit einer klaren Tagesübersicht und sicheren Organisationen.
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-700 bg-slate-800 p-4 text-sm text-slate-200">
-              <div className="mb-2 flex items-center gap-2 text-emerald-400">
-                <ShieldCheck className="h-4 w-4" />
-                <span>Mehr Sicherheit</span>
-              </div>
-              <p>Organisationale Datentrennung und sichere Zugriffskontrolle mit klaren Rollen.</p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-center p-6 md:p-10">
-            <div className="w-full max-w-md space-y-6">
-              <div className="space-y-2">
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-600">Login</p>
-                <h2 className="text-3xl font-semibold text-slate-900">Anmeldung</h2>
-              </div>
-
-              <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <Input
-                  label="E-Mail"
-                  type="email"
-                  placeholder="name@firma.ch"
-                  {...form.register("email")}
-                  aria-invalid={Boolean(form.formState.errors.email)}
-                  autoComplete="email"
-                />
-                {form.formState.errors.email ? <p className="text-xs text-rose-600">{form.formState.errors.email.message}</p> : null}
-
-                <Input
-                  label="Passwort"
-                  type="password"
-                  placeholder="••••••••"
-                  {...form.register("password")}
-                  aria-invalid={Boolean(form.formState.errors.password)}
-                  autoComplete="current-password"
-                />
-                {form.formState.errors.password ? <p className="text-xs text-rose-600">{form.formState.errors.password.message}</p> : null}
-
-                {form.formState.errors.root ? (
-                  <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{form.formState.errors.root.message}</p>
-                ) : null}
-
-                <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? "Anmeldung läuft…" : "Einloggen"} {!form.formState.isSubmitting ? <ArrowRight className="ml-2 h-4 w-4" /> : null}</Button>
-              </form>
-
-              <p className="text-center text-sm text-slate-600">
-                Noch kein Konto?{' '}
-                <Link href="/register" className="font-semibold text-emerald-600 hover:text-emerald-500">Konto erstellen</Link>
-              </p>
-            </div>
-          </div>
+    <main className="grid min-h-screen bg-white md:grid-cols-2">
+      <section className="flex min-h-[32vh] flex-col justify-between border-b border-slate-200 bg-[#f4f5f1] px-6 py-6 sm:px-10 md:min-h-screen md:border-b-0 md:border-r md:px-12 md:py-10 lg:px-20">
+        <Link href="/" className="flex w-fit items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[#176b4a] text-xs font-semibold tracking-wide text-white">CF</span>
+          <span className="text-base font-semibold tracking-tight text-slate-900">CleanFlow</span>
+        </Link>
+        <div className="max-w-md py-8 md:py-0">
+          <p className="mb-4 text-xs font-medium uppercase tracking-[0.16em] text-[#176b4a]">Einsatzplanung für Reinigungsunternehmen</p>
+          <h1 className="text-3xl font-semibold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">Aufträge einfach planen.</h1>
+          <p className="mt-5 max-w-sm text-base leading-7 text-slate-600">Kunden, Mitarbeitende und Einsätze übersichtlich an einem Ort organisieren.</p>
         </div>
-      </div>
+        <p className="hidden text-xs text-slate-500 md:block">Ruhig planen. Verlässlich arbeiten.</p>
+      </section>
+
+      <section className="flex items-center justify-center px-5 py-10 sm:px-10 md:px-12 lg:px-20">
+        <div className="w-full max-w-sm">
+          <div className="mb-8">
+            <p className="text-sm font-medium text-[#176b4a]">Willkommen zurück</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Anmelden</h2>
+            <p className="mt-2 text-sm text-slate-500">Melden Sie sich an, um Ihren Arbeitsbereich zu öffnen.</p>
+          </div>
+
+          <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            <div>
+              <Input
+                label="E-Mail"
+                type="email"
+                placeholder="name@firma.ch"
+                {...form.register("email")}
+                aria-invalid={Boolean(form.formState.errors.email)}
+                autoComplete="email"
+              />
+              {form.formState.errors.email ? <p className="mt-1.5 text-xs text-rose-700">{form.formState.errors.email.message}</p> : null}
+            </div>
+
+            <div>
+              <Input
+                label="Passwort"
+                type="password"
+                placeholder="Passwort eingeben"
+                {...form.register("password")}
+                aria-invalid={Boolean(form.formState.errors.password)}
+                autoComplete="current-password"
+              />
+              {form.formState.errors.password ? <p className="mt-1.5 text-xs text-rose-700">{form.formState.errors.password.message}</p> : null}
+            </div>
+
+            {form.formState.errors.root ? (
+              <p role="alert" className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{form.formState.errors.root.message}</p>
+            ) : null}
+
+            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? "Anmeldung läuft…" : "Anmelden"} {!form.formState.isSubmitting ? <ArrowRight className="ml-2 h-4 w-4" /> : null}</Button>
+          </form>
+
+          <p className="mt-7 border-t border-slate-200 pt-5 text-center text-sm text-slate-600">
+            Noch kein Konto?{" "}
+            <Link href="/register" className="font-medium text-[#176b4a] hover:underline">Registrieren</Link>
+          </p>
+        </div>
+      </section>
     </main>
   );
 }

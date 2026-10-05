@@ -1,11 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #f7f7f4;
+  --foreground: #202621;
   --card: #ffffff;
-  --muted: #64748b;
-  --border: #e2e8f0;
+  --muted: #66716a;
+  --border: #e3e7e2;
+  --brand: #176b4a;
+  --brand-dark: #11563b;
 }
 
 @theme inline {
@@ -17,6 +19,7 @@
 
 html {
   scroll-behavior: smooth;
+  background: var(--background);
 }
 
 body {
@@ -25,6 +28,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
@@ -39,5 +43,27 @@ textarea {
 }
 
 ::selection {
-  background: rgba(16, 185, 129, 0.18);
+  background: rgba(23, 107, 74, 0.16);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-color: var(--brand);
+}
+
+@media (max-width: 639px) {
+  body {
+    overflow-x: hidden;
+  }
 }
