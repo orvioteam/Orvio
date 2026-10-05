@@ -8,6 +8,9 @@ export function createSeedState(): AppState {
   const organization: Organization = {
     id: "org-sauberplus",
     name: "SauberPlus Reinigung",
+    phone: "+41 44 555 88 11",
+    email: "hello@sauberplus.ch",
+    address: "Bahnhofstrasse 10, 8001 Zürich",
     createdAt: "2025-08-01T08:00:00.000Z",
   };
 

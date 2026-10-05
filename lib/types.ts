@@ -4,6 +4,9 @@ export type JobStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
 export interface Organization {
   id: string;
   name: string;
+  phone: string;
+  email: string;
+  address: string;
   createdAt: string;
 }
 

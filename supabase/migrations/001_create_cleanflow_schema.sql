@@ -70,16 +70,16 @@ create index if not exists employees_org_idx on public.employees (organization_i
 create index if not exists jobs_org_idx on public.jobs (organization_id);
 create index if not exists jobs_date_idx on public.jobs (date);
 
+alter table public.organizations enable row level security;
+alter table public.organization_members enable row level security;
 alter table public.customers enable row level security;
 alter table public.employees enable row level security;
 alter table public.jobs enable row level security;
-alter table public.organizations enable row level security;
-alter table public.organization_members enable row level security;
 
 create policy "Users can create organizations" on public.organizations
 for insert with check (true);
 
-create policy "Users can view their own organization data" on public.organizations
+create policy "Users can view their own organization" on public.organizations
 for select using (
   id in (
     select organization_id from public.organization_members where user_id = auth.uid()
@@ -107,7 +107,7 @@ for select using (
   )
 );
 
-create policy "Users can manage their own members" on public.organization_members
+create policy "Users can manage their own organization members" on public.organization_members
 for update using (
   organization_id in (
     select organization_id from public.organization_members where user_id = auth.uid()
@@ -118,7 +118,7 @@ for update using (
   )
 );
 
-create policy "Users can delete their own organization membership" on public.organization_members
+create policy "Users can delete their own organization members" on public.organization_members
 for delete using (
   user_id = auth.uid()
 );
