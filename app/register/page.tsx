@@ -38,6 +38,12 @@ export default function RegisterPage() {
   const onSubmit = async (values: z.infer<typeof registerSchema>) => {
     setConfirmationRequired(false);
     form.clearErrors("root");
+    let stage: "auth" | "provision" | "redirect" = "auth";
+
+    if (process.env.NODE_ENV === "development") {
+      console.info("[signup] START");
+    }
+
     try {
       const supabase = createClient();
       const { data, error } = await supabase.auth.signUp({
@@ -51,11 +57,30 @@ export default function RegisterPage() {
         },
       });
 
+      if (process.env.NODE_ENV === "development") {
+        console.info("[signup] AUTH RESULT", JSON.stringify({
+          hasUser: Boolean(data.user),
+          hasSession: Boolean(data.session),
+          errorMessage: error?.message ?? null,
+          errorCode: error?.code ?? null,
+          errorStatus: error?.status ?? null,
+        }, null, 2));
+      }
+
       if (error) {
         form.setError("root", {
-          message: "Registrierung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
+          message: process.env.NODE_ENV === "development"
+            ? error.message
+            : "Registrierung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
         });
         return;
+      }
+
+      if (process.env.NODE_ENV === "development") {
+        console.info("[signup] USER", JSON.stringify({
+          hasUser: Boolean(data.user),
+          userIdPresent: Boolean(data.user?.id),
+        }, null, 2));
       }
 
       if (!data.user) {
@@ -66,14 +91,22 @@ export default function RegisterPage() {
       }
 
       if (!data.session) {
+        if (process.env.NODE_ENV === "development") {
+          console.info("[signup] CONFIRMATION_REQUIRED");
+        }
         setConfirmationRequired(true);
         return;
       }
 
-      const provisioningError = await refreshData(values.organizationName);
+      stage = "provision";
+      if (process.env.NODE_ENV === "development") {
+        console.info("[signup] PROVISION START");
+      }
+
+      const provisioningError = await refreshData(values.organizationName, true);
       if (provisioningError) {
         if (process.env.NODE_ENV === "development") {
-          console.error("Registration succeeded, but organization provisioning failed.", provisioningError);
+          console.error("[signup] PROVISION ERROR", provisioningError);
         }
         form.setError("root", {
           message: process.env.NODE_ENV === "development"
@@ -83,9 +116,17 @@ export default function RegisterPage() {
         return;
       }
 
+      stage = "redirect";
       router.replace("/dashboard");
       router.refresh();
+      if (process.env.NODE_ENV === "development") {
+        console.info("[signup] REDIRECT", "/dashboard");
+      }
     } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[signup] ${stage.toUpperCase()} ERROR`, message);
+      }
       form.setError("root", {
         message: error instanceof Error
           ? process.env.NODE_ENV === "development"

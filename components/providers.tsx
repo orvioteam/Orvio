@@ -125,7 +125,7 @@ interface AppContextValue {
   activeOrganization: Organization | null;
   isReady: boolean;
   appError: string | null;
-  refreshData: (organizationName?: string) => Promise<string | null>;
+  refreshData: (organizationName?: string, debugSignup?: boolean) => Promise<string | null>;
   signOut: () => Promise<void>;
   saveCustomer: (input: CustomerFormInput, customerId?: string) => Promise<Customer>;
   deleteCustomer: (customerId: string) => Promise<void>;
@@ -169,7 +169,11 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
     return client;
   }, [client]);
 
-  const loadOrganizationData = useCallback((user: SupabaseUserLike, preferredOrganizationName?: string) => {
+  const loadOrganizationData = useCallback((
+    user: SupabaseUserLike,
+    preferredOrganizationName?: string,
+    debugSignup = false,
+  ) => {
     const load = async (): Promise<OrganizationDataResult> => {
       const client = requireClient();
       const displayName = user.user_metadata?.full_name?.trim()
@@ -182,6 +186,22 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
         "ensure_current_user_organization",
         { p_organization_name: organizationName },
       );
+
+      if (debugSignup && process.env.NODE_ENV === "development") {
+        const errorFields = provisionError as (typeof provisionError & {
+          status?: number;
+          details?: string | null;
+          hint?: string | null;
+        }) | null;
+        console.info("[signup] PROVISION RESULT", JSON.stringify({
+          data: organizationId ?? null,
+          errorMessage: errorFields?.message ?? null,
+          errorCode: errorFields?.code ?? null,
+          errorStatus: errorFields?.status ?? null,
+          errorDetails: errorFields?.details ?? null,
+          errorHint: errorFields?.hint ?? null,
+        }, null, 2));
+      }
 
       if (provisionError) {
         throw new Error(`Organisation konnte nicht eingerichtet werden: ${provisionError.message}`);
@@ -239,7 +259,7 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
     return load();
   }, [requireClient]);
 
-  const refreshData = useCallback(async (organizationName?: string) => {
+  const refreshData = useCallback(async (organizationName?: string, debugSignup = false) => {
     try {
       const client = requireClient();
       const { data, error } = await client.auth.getUser();
@@ -254,7 +274,7 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
           : null;
       }
       setSupabaseUser(data.user);
-      const result = await loadOrganizationData(data.user, organizationName);
+      const result = await loadOrganizationData(data.user, organizationName, debugSignup);
       setState(result.state);
       setAppError(result.appError);
       setIsReady(true);
