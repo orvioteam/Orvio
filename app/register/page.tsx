@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,9 +21,17 @@ const registerSchema = z.object({
 export default function RegisterPage() {
   const router = useRouter();
   const { signUp, currentUser } = useApp();
+  const [confirmationRequired, setConfirmationRequired] = useState(false);
 
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      organizationName: "",
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+    },
   });
 
   useEffect(() => {
@@ -33,14 +41,20 @@ export default function RegisterPage() {
   }, [currentUser, router]);
 
   const onSubmit = async (values: z.infer<typeof registerSchema>) => {
+    setConfirmationRequired(false);
+    form.clearErrors("root");
     try {
-      await signUp(values);
-      router.push("/dashboard");
+      const result = await signUp(values);
+      if (result.status === "confirmation_required") {
+        setConfirmationRequired(true);
+        return;
+      }
+      router.replace("/dashboard");
     } catch (error) {
       form.setError("root", {
-        message: error instanceof Error && error.message.startsWith("Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse")
+        message: error instanceof Error
           ? error.message
-          : "Registrierung konnte nicht abgeschlossen werden.\nBitte versuchen Sie es erneut.\nFalls das Problem bleibt, wenden Sie sich an den Support.",
+          : "Registrierung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
       });
     }
   };
@@ -65,27 +79,39 @@ export default function RegisterPage() {
           </div>
 
           <div className="p-6 md:p-10">
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <Input label="Firmenname" placeholder="SauberPlus Reinigung" {...form.register("organizationName")} />
+            <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <Input label="Firmenname" autoComplete="organization" placeholder="SauberPlus Reinigung" {...form.register("organizationName")} />
               {form.formState.errors.organizationName ? <p className="text-xs text-rose-600">{form.formState.errors.organizationName.message}</p> : null}
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <Input label="Vorname" placeholder="Anna" {...form.register("firstName")} />
-                <Input label="Nachname" placeholder="Müller" {...form.register("lastName")} />
+                <div>
+                  <Input label="Vorname" autoComplete="given-name" placeholder="Anna" {...form.register("firstName")} aria-invalid={Boolean(form.formState.errors.firstName)} />
+                  {form.formState.errors.firstName ? <p className="mt-1 text-xs text-rose-600">{form.formState.errors.firstName.message}</p> : null}
+                </div>
+                <div>
+                  <Input label="Nachname" autoComplete="family-name" placeholder="Müller" {...form.register("lastName")} aria-invalid={Boolean(form.formState.errors.lastName)} />
+                  {form.formState.errors.lastName ? <p className="mt-1 text-xs text-rose-600">{form.formState.errors.lastName.message}</p> : null}
+                </div>
               </div>
 
-              <Input label="E-Mail" type="email" placeholder="name@firma.ch" {...form.register("email")} />
+              <Input label="E-Mail" type="email" autoComplete="email" placeholder="name@firma.ch" {...form.register("email")} aria-invalid={Boolean(form.formState.errors.email)} />
               {form.formState.errors.email ? <p className="text-xs text-rose-600">{form.formState.errors.email.message}</p> : null}
 
-              <Input label="Passwort" type="password" placeholder="Mindestens 8 Zeichen" {...form.register("password")} />
+              <Input label="Passwort" type="password" autoComplete="new-password" placeholder="Mindestens 8 Zeichen" {...form.register("password")} aria-invalid={Boolean(form.formState.errors.password)} />
               {form.formState.errors.password ? <p className="text-xs text-rose-600">{form.formState.errors.password.message}</p> : null}
 
+              {confirmationRequired ? (
+                <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                  Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse. Ihre Eingaben bleiben erhalten; melden Sie sich nach der Bestätigung an.
+                </p>
+              ) : null}
+
               {form.formState.errors.root ? (
-                <p className="whitespace-pre-line rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{form.formState.errors.root.message}</p>
+                <p role="alert" className="whitespace-pre-line rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{form.formState.errors.root.message}</p>
               ) : null}
 
               <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Konto wird erstellt…" : "Konto erstellen"}
+                {form.formState.isSubmitting ? "Konto wird erstellt…" : "Registrieren"}
                 {!form.formState.isSubmitting ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
               </Button>
             </form>

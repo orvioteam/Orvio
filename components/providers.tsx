@@ -114,6 +114,8 @@ const mapSupabaseUser = (
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Ein unerwarteter Fehler ist aufgetreten.";
 
+class AuthFlowError extends Error {}
+
 interface AppContextValue {
   state: AppState;
   currentUser: RegisteredUser | null;
@@ -122,7 +124,10 @@ interface AppContextValue {
   appError: string | null;
   refreshData: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<RegisteredUser>;
-  signUp: (input: SignUpInput) => Promise<RegisteredUser>;
+  signUp: (input: SignUpInput) => Promise<
+    | { status: "authenticated"; user: RegisteredUser }
+    | { status: "confirmation_required" }
+  >;
   signOut: () => Promise<void>;
   saveCustomer: (input: CustomerFormInput, customerId?: string) => Promise<Customer>;
   deleteCustomer: (customerId: string) => Promise<void>;
@@ -181,8 +186,6 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
     if (!memberData) {
       const organizationName = user.user_metadata?.organization_name?.trim();
       if (!organizationName) {
-        setSupabaseUser(user);
-        setState({ ...emptyState, users: [mapSupabaseUser(user, "")], currentUserId: user.id });
         throw new Error("Für dieses Benutzerkonto ist noch keine Organisation eingerichtet.");
       }
 
@@ -315,22 +318,40 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
   ) ?? null;
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const client = requireClient();
-    const { data, error } = await client.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message || "E-Mail oder Passwort ist ungültig.");
     try {
-      const user = await hydrateSupabaseState(data.user);
+      const client = requireClient();
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      if (error) {
+        console.error("Supabase rejected the CleanFlow sign-in request.", error);
+        const message = error.code === "email_not_confirmed"
+          ? "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse."
+          : error.code === "invalid_credentials"
+            ? "E-Mail oder Passwort ist nicht korrekt."
+            : "Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.";
+        throw new AuthFlowError(message);
+      }
+      if (!data.user) throw new Error("Supabase hat nach dem Login keinen Benutzer zurückgegeben.");
+
+      const { data: authenticatedData, error: identityError } = await client.auth.getUser();
+      if (identityError) throw identityError;
+      if (authenticatedData.user?.id !== data.user.id) {
+        throw new Error("Die Supabase-Sitzung konnte nicht bestätigt werden.");
+      }
+
+      const user = await hydrateSupabaseState(authenticatedData.user);
       setAppError(null);
       return user;
     } catch (hydrateError) {
-      setAppError(errorMessage(hydrateError));
-      throw hydrateError;
+      if (hydrateError instanceof AuthFlowError) throw hydrateError;
+      console.error("CleanFlow sign-in could not be completed.", hydrateError);
+      setAppError(null);
+      throw new AuthFlowError("Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.");
     }
   }, [hydrateSupabaseState, requireClient]);
 
   const signUp = useCallback(async (input: SignUpInput) => {
-    const client = requireClient();
     try {
+      const client = requireClient();
       const { data, error } = await client.auth.signUp({
         email: input.email,
         password: input.password,
@@ -345,40 +366,20 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
       if (!data.user) throw new Error("Supabase hat kein Benutzerkonto zurückgegeben.");
+      if (data.user.identities?.length === 0) {
+        throw new Error("Registrierung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut oder melden Sie sich an.");
+      }
       if (!data.session) {
-        throw new Error("Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse und melden Sie sich danach an. Ihre Organisation wird beim ersten Login eingerichtet.");
+        return { status: "confirmation_required" as const };
       }
 
       const { data: authenticatedData, error: identityError } = await client.auth.getUser();
       if (identityError) throw identityError;
       if (authenticatedData.user?.id !== data.user.id) throw new Error("Der angemeldete Benutzer stimmt nicht mit dem neuen Konto überein.");
 
-      const { data: organizationData, error: organizationError } = await client
-        .from("organizations")
-        .insert({
-          name: input.organizationName,
-          phone: "",
-          email: input.email,
-          address: "",
-          created_by: authenticatedData.user.id,
-        })
-        .select()
-        .single();
-
-      if (organizationError) throw organizationError;
-
-      const { error: memberError } = await client.from("organization_members").insert({
-        organization_id: organizationData.id,
-        user_id: authenticatedData.user.id,
-        role: "owner",
-      });
-      if (memberError) throw memberError;
-
-      return await hydrateSupabaseState(data.user);
+      const user = await hydrateSupabaseState(authenticatedData.user);
+      return { status: "authenticated" as const, user };
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith("Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse")) {
-        throw error;
-      }
       console.error("CleanFlow registration could not be completed.", error);
       throw new Error("Registrierung konnte nicht abgeschlossen werden.");
     }

@@ -26,8 +26,8 @@ export async function createServerSupabaseClient() {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
             });
-          } catch {
-            // Ignore cookie write errors in Server Components.
+          } catch (error) {
+            console.error("Supabase auth cookies could not be written from a Server Component.", error);
           }
         },
       },

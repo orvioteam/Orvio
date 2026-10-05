@@ -28,19 +28,30 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  const isMissingSession = error instanceof Error && error.name === "AuthSessionMissingError";
+  if (error && !isMissingSession) {
+    console.error("Supabase session verification failed in proxy.", error);
+    return response;
+  }
+  const authenticatedUser = isMissingSession ? null : user;
+
   const pathname = request.nextUrl.pathname;
   const isProtectedPath = protectedPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
   const isPublicOnlyPath = publicOnlyPaths.includes(pathname);
 
-  if (!user && isProtectedPath) {
+  if (!authenticatedUser && isProtectedPath) {
     const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return redirectResponse;
   }
 
-  if (user && isPublicOnlyPath) {
+  if (authenticatedUser && isPublicOnlyPath) {
     const dashboardUrl = new URL("/dashboard", request.url);
-    return NextResponse.redirect(dashboardUrl);
+    const redirectResponse = NextResponse.redirect(dashboardUrl);
+    response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return redirectResponse;
   }
 
   return response;

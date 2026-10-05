@@ -34,12 +34,18 @@ export default function LoginPage() {
   }, [currentUser, router]);
 
   const onSubmit = async (values: z.infer<typeof loginSchema>) => {
+    form.clearErrors("root");
     try {
       await signIn(values.email, values.password);
-      router.push("/dashboard");
+      router.replace("/dashboard");
     } catch (error) {
       form.setError("root", {
-        message: error instanceof Error ? error.message : "Anmeldung fehlgeschlagen.",
+        message: error instanceof Error && (
+          error.message === "E-Mail oder Passwort ist nicht korrekt."
+          || error.message === "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse."
+        )
+          ? error.message
+          : "Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
       });
     }
   };
@@ -78,13 +84,14 @@ export default function LoginPage() {
                 <h2 className="text-3xl font-semibold text-slate-900">Anmeldung</h2>
               </div>
 
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <Input
                   label="E-Mail"
                   type="email"
                   placeholder="name@firma.ch"
                   {...form.register("email")}
                   aria-invalid={Boolean(form.formState.errors.email)}
+                  autoComplete="email"
                 />
                 {form.formState.errors.email ? <p className="text-xs text-rose-600">{form.formState.errors.email.message}</p> : null}
 
@@ -94,11 +101,12 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   {...form.register("password")}
                   aria-invalid={Boolean(form.formState.errors.password)}
+                  autoComplete="current-password"
                 />
                 {form.formState.errors.password ? <p className="text-xs text-rose-600">{form.formState.errors.password.message}</p> : null}
 
                 {form.formState.errors.root ? (
-                  <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{form.formState.errors.root.message}</p>
+                  <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{form.formState.errors.root.message}</p>
                 ) : null}
 
                 <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? "Anmeldung läuft…" : "Einloggen"} {!form.formState.isSubmitting ? <ArrowRight className="ml-2 h-4 w-4" /> : null}</Button>
