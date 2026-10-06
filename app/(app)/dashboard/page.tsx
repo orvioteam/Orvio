@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   addDays,
-  addMonths,
-  addWeeks,
   eachDayOfInterval,
   endOfMonth,
   endOfWeek,
@@ -78,20 +76,9 @@ export default function DashboardPage() {
     router.replace(query ? `/dashboard?${query}` : "/dashboard", { scroll: false });
   };
 
-  const changePeriod = (direction: -1 | 1) => {
-    const nextDate = view === "week"
-      ? addWeeks(selectedDate, direction)
-      : view === "month"
-        ? addMonths(selectedDate, direction)
-        : addDays(selectedDate, direction);
-    setPlannerLocation(nextDate, view);
+  const changeDate = (direction: -1 | 1) => {
+    setPlannerLocation(addDays(selectedDate, direction), view);
   };
-
-  const periodLabel = view === "week"
-    ? `${format(weekStart, "d. MMMM", { locale: de })} – ${format(weekEnd, "d. MMMM yyyy", { locale: de })}`
-    : view === "month"
-      ? format(selectedDate, "LLLL yyyy", { locale: de })
-      : format(selectedDate, "d. MMMM yyyy", { locale: de });
 
   const getJobDetails = (job: Job) => {
     const customer = state.customers.find((entry) => entry.id === job.customerId);
@@ -105,22 +92,20 @@ export default function DashboardPage() {
   return (
     <div className="min-w-0">
       <PageHeader
-        title={isToday(selectedDate) ? "Heute" : "Planung"}
-        description={format(selectedDate, "EEEE, d. MMMM yyyy", { locale: de })}
+        title={isToday(selectedDate) ? "Heute" : format(selectedDate, "EEEE, d. MMMM yyyy", { locale: de })}
         action={<Button type="button" onClick={() => router.push(`/jobs?new=1&date=${dateKey}`)}><Plus className="mr-2 h-4 w-4" /> Auftrag</Button>}
       />
 
       <section aria-label="Planungsansicht" className="mb-6 space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
-            <button type="button" aria-label="Vorheriger Zeitraum" onClick={() => changePeriod(-1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
+            <button type="button" aria-label="Vorheriger Tag" onClick={() => changeDate(-1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <p className="min-w-0 flex-1 truncate text-center text-sm font-medium text-slate-800 sm:flex-none sm:px-2">{periodLabel}</p>
-            <button type="button" aria-label="Nächster Zeitraum" onClick={() => changePeriod(1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
+            <p className="min-w-0 flex-1 truncate text-center text-sm font-medium text-slate-800 sm:flex-none sm:px-2">{format(selectedDate, "d. MMMM yyyy", { locale: de })}</p>
+            <button type="button" aria-label="Nächster Tag" onClick={() => changeDate(1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
               <ChevronRight className="h-4 w-4" />
             </button>
-            <Button type="button" variant="secondary" className="ml-1 min-h-10 px-3" onClick={() => setPlannerLocation(today, view)}>Heute</Button>
           </div>
           <div role="group" aria-label="Ansicht auswählen" className="grid grid-cols-3 rounded-lg border border-slate-200 bg-white p-1 sm:inline-flex">
             {([
