@@ -116,6 +116,10 @@ const messages: Record<Exclude<AppLanguage, "de">, Record<string, string>> = {
     "Nächster Tag": "Next day", "Heute anzeigen": "Show today", "Keine Einsätze an diesem Tag": "No jobs on this day",
     "Für den": "For", "sind keine Aufträge geplant.": "no jobs are scheduled.",
     "Auftrag für diesen Tag hinzufügen": "Add a job for this day",
+    "Sie wurden eingeladen, einem Team beizutreten.": "You have been invited to join a team.",
+    "Firma": "Company", "Diese Einladung wurde bereits verwendet.": "This invitation has already been used.",
+    "Bitte verwenden Sie die E-Mail-Adresse, an die die Einladung gesendet wurde.": "Please use the email address this invitation was sent to.",
+    "Sie haben bereits ein Konto?": "Already have an account?",
   },
   fr: {
     "Arbeitsbereich": "Espace de travail", "Konto": "Compte", "Heute": "Aujourd’hui", "Planung": "Planning",
@@ -221,6 +225,10 @@ const messages: Record<Exclude<AppLanguage, "de">, Record<string, string>> = {
     "Nächster Tag": "Jour suivant", "Heute anzeigen": "Afficher aujourd’hui", "Keine Einsätze an diesem Tag": "Aucune intervention ce jour",
     "Für den": "Pour le", "sind keine Aufträge geplant.": "aucune intervention n’est prévue.",
     "Auftrag für diesen Tag hinzufügen": "Ajouter une intervention pour ce jour",
+    "Sie wurden eingeladen, einem Team beizutreten.": "Vous avez été invité à rejoindre une équipe.",
+    "Firma": "Entreprise", "Diese Einladung wurde bereits verwendet.": "Cette invitation a déjà été utilisée.",
+    "Bitte verwenden Sie die E-Mail-Adresse, an die die Einladung gesendet wurde.": "Veuillez utiliser l’adresse e-mail à laquelle l’invitation a été envoyée.",
+    "Sie haben bereits ein Konto?": "Vous avez déjà un compte ?",
   },
   it: {
     "Arbeitsbereich": "Area di lavoro", "Konto": "Account", "Heute": "Oggi", "Planung": "Pianificazione",
@@ -323,6 +331,10 @@ const messages: Record<Exclude<AppLanguage, "de">, Record<string, string>> = {
     "Nächster Tag": "Giorno successivo", "Heute anzeigen": "Mostra oggi", "Keine Einsätze an diesem Tag": "Nessun intervento per questo giorno",
     "Für den": "Per il", "sind keine Aufträge geplant.": "non sono previsti interventi.",
     "Auftrag für diesen Tag hinzufügen": "Aggiungi un intervento per questo giorno",
+    "Sie wurden eingeladen, einem Team beizutreten.": "Hai ricevuto un invito a unirti a un team.",
+    "Firma": "Azienda", "Diese Einladung wurde bereits verwendet.": "Questo invito è già stato utilizzato.",
+    "Bitte verwenden Sie die E-Mail-Adresse, an die die Einladung gesendet wurde.": "Usa l’indirizzo email a cui è stato inviato l’invito.",
+    "Sie haben bereits ein Konto?": "Hai già un account?",
   },
 };
 

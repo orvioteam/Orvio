@@ -8,13 +8,13 @@ export async function proxy(request: NextRequest) {
   const isProtectedPath = protectedPaths.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
+  if (!isProtectedPath) return NextResponse.next({ request });
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
   if (!supabaseUrl || !supabasePublishableKey) {
-    return isProtectedPath
-      ? NextResponse.redirect(new URL("/login", request.url))
-      : NextResponse.next({ request });
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   let response = NextResponse.next({ request });
@@ -34,7 +34,7 @@ export async function proxy(request: NextRequest) {
   });
 
   const { data, error } = await supabase.auth.getClaims();
-  if ((error || !data?.claims) && isProtectedPath) {
+  if (error || !data?.claims) {
     const redirectResponse = NextResponse.redirect(new URL("/login", request.url));
     response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
     return redirectResponse;
