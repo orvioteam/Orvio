@@ -16,6 +16,30 @@ type InvitationDetails = {
   expires_at: string;
 };
 
+type InviteDiagnosticError = {
+  message: string;
+  code?: string;
+  status?: number;
+  details?: string | null;
+  hint?: string | null;
+};
+
+function logInviteDiagnostic(stage: string, values: Record<string, unknown>) {
+  if (process.env.NODE_ENV === "development") {
+    console.info(`[employee-invite] ${stage}`, values);
+  }
+}
+
+function describeInviteError(error: InviteDiagnosticError) {
+  return {
+    message: error.message,
+    code: error.code ?? null,
+    status: error.status ?? null,
+    details: error.details ?? null,
+    hint: error.hint ?? null,
+  };
+}
+
 const translateInvitationError = (message: string) => ({
   "Invitation is invalid or expired": "Einladung ist ungültig oder abgelaufen.",
   "Invitation already used": "Diese Einladung wurde bereits verwendet.",
@@ -24,6 +48,17 @@ const translateInvitationError = (message: string) => ({
   "Account cannot join this employee invitation": "Dieses Konto kann diese Mitarbeitereinladung nicht annehmen.",
   "Employee is already linked to another account": "Dieser Mitarbeiter ist bereits mit einem anderen Konto verknüpft.",
   "Authentication required": "Bitte melden Sie sich an, um die Einladung anzunehmen.",
+  "INVITE_ACCEPT: Invitation is invalid or expired": "Einladung ist ungültig oder abgelaufen.",
+  "INVITE_ACCEPT: Invitation already used": "Diese Einladung wurde bereits verwendet.",
+  "INVITE_ACCEPT: Signed-in email does not match this invitation": "Die E-Mail-Adresse stimmt nicht mit der Einladung überein.",
+  "EMPLOYEE_LINK: Employee does not belong to the invitation organization": "Der Mitarbeiterdatensatz gehört nicht zur Organisation dieser Einladung.",
+  "EMPLOYEE_LINK: Employee is already linked to another account": "Dieser Mitarbeiter ist bereits mit einem anderen Konto verknüpft.",
+  "EMPLOYEE_LINK: Employee account could not be linked": "Das Mitarbeiterkonto konnte nicht mit dem Mitarbeiterdatensatz verknüpft werden.",
+  "MEMBERSHIP: Account already belongs to another organization": "Dieses Konto gehört bereits zu einer anderen Organisation.",
+  "MEMBERSHIP: Account already has a non-employee role in this organization": "Dieses Konto besitzt in der Organisation bereits eine andere Rolle.",
+  "MEMBERSHIP: Employee membership could not be created": "Die Mitarbeiter-Mitgliedschaft konnte nicht erstellt werden.",
+  "MEMBERSHIP: Employee membership was not created": "Die Mitarbeiter-Mitgliedschaft wurde nicht bestätigt.",
+  "MEMBERSHIP: Invitation acceptance did not return an organization.": "Die Organisation zur Einladung konnte nicht ermittelt werden.",
 }[message] ?? message);
 
 export function JoinPageClient({ token }: { token: string }) {
@@ -38,21 +73,89 @@ export function JoinPageClient({ token }: { token: string }) {
   const supabase = useMemo(() => createClient(), []);
 
   const acceptInvitation = useCallback(async () => {
-    const { error: acceptError } = await supabase.rpc("accept_employee_invitation", { p_token: token });
-    if (acceptError) throw new Error(acceptError.message);
+    logInviteDiagnostic("INVITE_ACCEPT", { status: "started" });
+    const { data: organizationId, error: acceptError } = await supabase.rpc("accept_employee_invitation", { p_token: token });
+    if (acceptError) {
+      const stage = acceptError.message.startsWith("EMPLOYEE_LINK:")
+        ? "EMPLOYEE_LINK"
+        : acceptError.message.startsWith("MEMBERSHIP:")
+          ? "MEMBERSHIP"
+          : "INVITE_ACCEPT";
+      logInviteDiagnostic(stage, describeInviteError(acceptError));
+      throw new Error(acceptError.message);
+    }
+    logInviteDiagnostic("INVITE_ACCEPT", { status: "succeeded" });
+    logInviteDiagnostic("EMPLOYEE_LINK", { status: "succeeded" });
+
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user) {
+      const message = authError?.message ?? "Authentication required";
+      logInviteDiagnostic("AUTH", authError
+        ? describeInviteError(authError)
+        : { message, code: null, status: null, details: null, hint: null });
+      throw new Error(message);
+    }
+    if (!organizationId) {
+      const message = "MEMBERSHIP: Invitation acceptance did not return an organization.";
+      logInviteDiagnostic("MEMBERSHIP", {
+        message,
+        code: null,
+        status: null,
+        details: "The acceptance RPC returned no organization identifier.",
+        hint: "Check the deployed invitation acceptance migration.",
+      });
+      throw new Error(message);
+    }
+
+    const { data: membership, error: membershipError } = await supabase
+      .from("organization_members")
+      .select("role")
+      .eq("organization_id", organizationId)
+      .eq("user_id", authData.user.id)
+      .maybeSingle();
+    if (membershipError || membership?.role !== "employee") {
+      const diagnostic = membershipError
+        ? describeInviteError(membershipError)
+        : {
+          message: "Employee membership was not found after acceptance.",
+          code: null,
+          status: null,
+          details: "No employee membership exists for the authenticated user in the invitation organization.",
+          hint: "Apply the latest employee invitation acceptance migration.",
+        };
+      logInviteDiagnostic("MEMBERSHIP", diagnostic);
+      throw new Error("MEMBERSHIP: Employee membership was not created");
+    }
+    logInviteDiagnostic("MEMBERSHIP", { status: "verified" });
+
     const refreshError = await refreshData();
-    if (refreshError) throw new Error(refreshError);
+    if (refreshError) {
+      logInviteDiagnostic("MEMBERSHIP", {
+        message: refreshError,
+        code: null,
+        status: null,
+        details: null,
+        hint: null,
+      });
+      throw new Error(refreshError);
+    }
     router.replace("/dashboard");
     router.refresh();
+    logInviteDiagnostic("REDIRECT", { status: "requested", destination: "/dashboard" });
   }, [refreshData, router, supabase, token]);
 
   useEffect(() => {
     let active = true;
     void (async () => {
+      logInviteDiagnostic("INVITE_OPEN", { status: "started" });
       const { data, error: invitationError } = await supabase.rpc("get_employee_invitation", { p_token: token });
-      if (invitationError) throw new Error(invitationError.message);
+      if (invitationError) {
+        logInviteDiagnostic("INVITE_OPEN", describeInviteError(invitationError));
+        throw new Error(invitationError.message);
+      }
       const invite = (Array.isArray(data) ? data[0] : data) as InvitationDetails | null;
       if (!invite) throw new Error("Einladung ist ungültig oder abgelaufen.");
+      logInviteDiagnostic("INVITE_OPEN", { status: invite.invitation_status });
       if (invite.invitation_status === "expired") {
         throw new Error("Einladung ist ungültig oder abgelaufen.");
       }
@@ -68,8 +171,10 @@ export function JoinPageClient({ token }: { token: string }) {
 
       const { data: authData, error: authError } = await supabase.auth.getSession();
       if (authError && authError.name !== "AuthSessionMissingError") {
+        logInviteDiagnostic("AUTH", describeInviteError(authError));
         throw new Error(authError.message);
       }
+      logInviteDiagnostic("AUTH", { status: authData?.session?.user ? "authenticated" : "anonymous" });
       if (active && authData?.session?.user) await acceptInvitation();
     })().catch((loadError: unknown) => {
       if (active) setError(t(translateInvitationError(loadError instanceof Error ? loadError.message : "Einladung ist ungültig oder abgelaufen.")));
@@ -96,7 +201,11 @@ export function JoinPageClient({ token }: { token: string }) {
           data: { full_name: fullName.trim() },
         },
       });
-      if (signUpError) throw new Error(signUpError.message);
+      if (signUpError) {
+        logInviteDiagnostic("AUTH", describeInviteError(signUpError));
+        throw new Error(signUpError.message);
+      }
+      logInviteDiagnostic("AUTH", { status: data.session ? "succeeded" : "email_confirmation_required" });
       if (!data.session) {
         setConfirmationRequired(true);
         return;

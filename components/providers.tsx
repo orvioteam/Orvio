@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { translate } from "@/lib/i18n";
 import {
@@ -176,6 +177,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 function ConfiguredAppProvider({ children }: { children: ReactNode }) {
   const client = useMemo(() => createClient(), []);
+  const pathname = usePathname();
   const [state, setState] = useState<AppState>(emptyState);
   const [isReady, setIsReady] = useState(false);
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUserLike | null>(null);
@@ -400,6 +402,7 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
       }
 
       setSupabaseUser(session.user);
+      setAppError(null);
       setIsReady(false);
     });
 
@@ -407,7 +410,8 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
   }, [client]);
 
   useEffect(() => {
-    if (!supabaseUser) return;
+    const isInviteHandoff = pathname === "/login" || pathname?.startsWith("/join/");
+    if (!supabaseUser || isInviteHandoff) return;
     let isActive = true;
     const generation = ++dataLoadGeneration.current;
 
@@ -436,7 +440,7 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
     return () => {
       isActive = false;
     };
-  }, [loadOrganizationData, supabaseUser]);
+  }, [loadOrganizationData, pathname, supabaseUser]);
 
   const currentUser = supabaseUser
     ? mapSupabaseUser(supabaseUser, state.activeOrganizationId ?? "")

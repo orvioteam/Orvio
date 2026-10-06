@@ -27,6 +27,8 @@ export default function LoginPage() {
 
   const onSubmit = async (values: z.infer<typeof loginSchema>) => {
     form.clearErrors("root");
+    const nextPath = new URLSearchParams(window.location.search).get("next");
+    const inviteReturnPath = nextPath && /^\/join\/[A-Za-z0-9_-]+$/.test(nextPath) ? nextPath : null;
     try {
       const supabase = createClient();
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -35,6 +37,15 @@ export default function LoginPage() {
       });
 
       if (error) {
+        if (inviteReturnPath && process.env.NODE_ENV === "development") {
+          console.info("[employee-invite] AUTH", {
+            message: error.message,
+            code: error.code ?? null,
+            status: error.status ?? null,
+            details: "details" in error ? error.details : null,
+            hint: "hint" in error ? error.hint : null,
+          });
+        }
         form.setError("root", {
           message: error.code === "invalid_credentials" || error.message === "Invalid login credentials"
             ? "E-Mail oder Passwort ist nicht korrekt."
@@ -50,8 +61,10 @@ export default function LoginPage() {
         return;
       }
 
-      const requestedPath = new URLSearchParams(window.location.search).get("next");
-      router.replace(requestedPath && /^\/join\/[A-Za-z0-9_-]+$/.test(requestedPath) ? requestedPath : "/dashboard");
+      if (inviteReturnPath && process.env.NODE_ENV === "development") {
+        console.info("[employee-invite] AUTH", { status: "succeeded" });
+      }
+      router.replace(inviteReturnPath ?? "/dashboard");
       router.refresh();
     } catch {
       form.setError("root", {
