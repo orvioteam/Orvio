@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   addDays,
+  addMonths,
+  addWeeks,
   eachDayOfInterval,
   endOfMonth,
   endOfWeek,
@@ -55,9 +57,9 @@ export default function DashboardPage() {
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
   const weekJobs = state.jobs.filter((job) => job.date >= format(weekStart, "yyyy-MM-dd") && job.date <= format(weekEnd, "yyyy-MM-dd"));
   const weekHours = Array.from(new Set([
-    ...Array.from({ length: 14 }, (_, index) => `${String(index + 6).padStart(2, "0")}:00`),
+    ...Array.from({ length: 19 }, (_, index) => `${String(index + 6).padStart(2, "0")}:00`),
     ...weekJobs.map(getJobHour),
-  ])).sort();
+  ])).sort((a, b) => Number(a.slice(0, 2)) - Number(b.slice(0, 2)));
   const monthStart = startOfMonth(selectedDate);
   const monthEnd = endOfMonth(selectedDate);
   const monthDays = eachDayOfInterval({
@@ -76,9 +78,26 @@ export default function DashboardPage() {
     router.replace(query ? `/dashboard?${query}` : "/dashboard", { scroll: false });
   };
 
-  const changeDate = (direction: -1 | 1) => {
-    setPlannerLocation(addDays(selectedDate, direction), view);
+  const changePeriod = (direction: -1 | 1) => {
+    const nextDate = view === "week"
+      ? addWeeks(selectedDate, direction)
+      : view === "month"
+        ? addMonths(selectedDate, direction)
+        : addDays(selectedDate, direction);
+    setPlannerLocation(nextDate, view);
   };
+
+  const periodLabel = view === "week"
+    ? format(weekStart, "M", { locale: de }) === format(weekEnd, "M", { locale: de })
+      ? `${format(weekStart, "d.")} – ${format(weekEnd, "d. MMMM yyyy", { locale: de })}`
+      : format(weekStart, "yyyy", { locale: de }) === format(weekEnd, "yyyy", { locale: de })
+        ? `${format(weekStart, "d. MMMM", { locale: de })} – ${format(weekEnd, "d. MMMM yyyy", { locale: de })}`
+        : `${format(weekStart, "d. MMMM yyyy", { locale: de })} – ${format(weekEnd, "d. MMMM yyyy", { locale: de })}`
+    : view === "month"
+      ? format(selectedDate, "LLLL yyyy", { locale: de })
+      : format(selectedDate, "EEEE, d. MMMM yyyy", { locale: de });
+
+  const navigationLabel = view === "week" ? "Woche" : view === "month" ? "Monat" : "Tag";
 
   const getJobDetails = (job: Job) => {
     const customer = state.customers.find((entry) => entry.id === job.customerId);
@@ -92,20 +111,24 @@ export default function DashboardPage() {
   return (
     <div className="min-w-0">
       <PageHeader
-        title={isToday(selectedDate) ? "Heute" : format(selectedDate, "EEEE, d. MMMM yyyy", { locale: de })}
+        title={view === "day"
+          ? (isToday(selectedDate) ? "Heute" : format(selectedDate, "EEEE, d. MMMM yyyy", { locale: de }))
+          : navigationLabel}
+        description={view === "day" && isToday(selectedDate) ? format(selectedDate, "d. MMMM yyyy", { locale: de }) : undefined}
         action={<Button type="button" onClick={() => router.push(`/jobs?new=1&date=${dateKey}`)}><Plus className="mr-2 h-4 w-4" /> Auftrag</Button>}
       />
 
       <section aria-label="Planungsansicht" className="mb-6 space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
-            <button type="button" aria-label="Vorheriger Tag" onClick={() => changeDate(-1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
+            <button type="button" aria-label={`Vorherige ${navigationLabel}`} onClick={() => changePeriod(-1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <p className="min-w-0 flex-1 truncate text-center text-sm font-medium text-slate-800 sm:flex-none sm:px-2">{format(selectedDate, "d. MMMM yyyy", { locale: de })}</p>
-            <button type="button" aria-label="Nächster Tag" onClick={() => changeDate(1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
+            <p className="min-w-0 flex-1 truncate text-center text-xs font-medium text-slate-800 sm:flex-none sm:px-2 sm:text-sm">{periodLabel}</p>
+            <button type="button" aria-label={`Nächste ${navigationLabel}`} onClick={() => changePeriod(1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
               <ChevronRight className="h-4 w-4" />
             </button>
+            <span className="sr-only" aria-live="polite">{periodLabel}</span>
           </div>
           <div role="group" aria-label="Ansicht auswählen" className="grid grid-cols-3 rounded-lg border border-slate-200 bg-white p-1 sm:inline-flex">
             {([
@@ -151,11 +174,8 @@ export default function DashboardPage() {
       ) : null}
 
       {view === "week" ? (
-        weekJobs.length === 0 ? (
-          <EmptyState title="Keine Aufträge geplant." description="In dieser Woche sind keine Einsätze geplant." />
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="w-full min-w-[760px] table-fixed border-collapse text-left">
+        <div className="max-w-full overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table className="w-full min-w-[760px] table-fixed border-collapse text-left">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
                   <th className="w-16 px-3 py-3 text-xs font-medium text-slate-500">Zeit</th>
@@ -196,9 +216,8 @@ export default function DashboardPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
-        )
+          </table>
+        </div>
       ) : null}
 
       {view === "month" ? (
