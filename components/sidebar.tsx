@@ -5,11 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { BriefcaseBusiness, CalendarDays, LogOut, Settings, Users, UserRound } from "lucide-react";
 import { useState } from "react";
 import { useApp } from "@/components/providers";
+import { translateError } from "@/lib/i18n";
 
 export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { activeOrganization, currentRole, currentUser, signOut, t } = useApp();
+  const { activeOrganization, currentRole, currentUser, language, signOut, t } = useApp();
   const navItems = currentRole === "owner"
     ? [
       { href: "/dashboard", label: "Heute", icon: CalendarDays },
@@ -32,7 +33,7 @@ export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNa
       router.refresh();
       onNavigate?.();
     } catch (error) {
-      setSignOutError(t(error instanceof Error ? error.message : "Abmeldung fehlgeschlagen."));
+      setSignOutError(translateError(language, error, "Abmeldung fehlgeschlagen."));
       setIsSigningOut(false);
     }
   };
@@ -43,9 +44,9 @@ export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNa
       : "group hidden w-[4.5rem] shrink-0 flex-col border-r border-slate-200 bg-white text-slate-800 md:flex xl:w-60"}>
       <div className="flex h-[4.25rem] items-center border-b border-slate-200 px-4 xl:px-5">
         <Link href="/dashboard" onClick={onNavigate} className="flex min-w-0 items-center gap-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#176b4a] text-xs font-semibold tracking-wide text-white">CF</span>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#176b4a] text-xs font-semibold tracking-wide text-white">OV</span>
           <span className={`${mobile ? "block" : "hidden xl:block"} min-w-0`}>
-            <span className="block text-sm font-semibold tracking-tight text-slate-900">CleanFlow</span>
+            <span className="block text-sm font-semibold tracking-tight text-slate-900">Orvio</span>
             <span className="block truncate text-xs text-slate-500">{activeOrganization?.name ?? t("Planung")}</span>
           </span>
         </Link>

@@ -4,6 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { PencilLine, Plus, Search } from "lucide-react";
 import { Button, Card, ConfirmDelete, EmptyState, Input, PageHeader } from "@/components/ui";
 import { useApp } from "@/components/providers";
+import { translateError } from "@/lib/i18n";
 import type { CustomerFormInput } from "@/lib/types";
 
 const defaultCustomer: CustomerFormInput = {
@@ -11,7 +12,7 @@ const defaultCustomer: CustomerFormInput = {
 };
 
 export default function CustomersPage() {
-  const { state, saveCustomer, deleteCustomer, t } = useApp();
+  const { state, saveCustomer, deleteCustomer, language, t } = useApp();
   const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -51,7 +52,7 @@ export default function CustomersPage() {
       setEditingId(null);
       setFormOpen(false);
     } catch (error) {
-      setFormError(error instanceof Error ? t(error.message) : t("Kunde konnte nicht gespeichert werden."));
+      setFormError(translateError(language, error, "Kunde konnte nicht gespeichert werden."));
     } finally {
       setIsSaving(false);
     }
@@ -75,7 +76,7 @@ export default function CustomersPage() {
     try {
       await deleteCustomer(customerId);
     } catch (error) {
-      setActionError(error instanceof Error ? t(error.message) : t("Kunde konnte nicht gelöscht werden."));
+      setActionError(translateError(language, error, "Kunde konnte nicht gelöscht werden."));
     } finally {
       setBusyId(null);
     }
@@ -120,7 +121,7 @@ export default function CustomersPage() {
       ) : null}
 
       {filteredCustomers.length === 0 ? (
-        <EmptyState title={t(state.customers.length === 0 ? "Noch keine Kunden" : "Keine passenden Kunden")} description={t(state.customers.length === 0 ? "Fügen Sie Ihren ersten Kunden hinzu, um Aufträge planen zu können." : "Prüfen Sie Ihre Suche oder setzen Sie sie zurück.")} action={state.customers.length > 0
+        <EmptyState title={t(state.customers.length === 0 ? "Keine Kunden vorhanden." : "Keine passenden Kunden")} description={t(state.customers.length === 0 ? "Fügen Sie Ihren ersten Kunden hinzu, um Aufträge planen zu können." : "Prüfen Sie Ihre Suche oder setzen Sie sie zurück.")} action={state.customers.length > 0
           ? <Button type="button" variant="secondary" onClick={() => setQuery("")}>{t("Suche zurücksetzen")}</Button>
           : undefined} />
       ) : (

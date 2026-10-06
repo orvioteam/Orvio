@@ -1,6 +1,6 @@
-# CleanFlow
+# Orvio
 
-CleanFlow ist eine moderne SaaS-Web-App für kleine und mittlere Reinigungsfirmen in der Schweiz. Die Anwendung verwaltet Kunden, Mitarbeiter, Aufträge und die Tagesplanung zentral in einer klaren, professionellen Oberfläche.
+Orvio ist eine SaaS-Web-App für mobile Teams. Die Anwendung verwaltet Kunden, Mitarbeitende, Aufträge und die Tagesplanung zentral in einer klaren, professionellen Oberfläche.
 
 ## Voraussetzungen
 
@@ -67,5 +67,5 @@ Die Architektur ist bereits auf SaaS- und Billing-Features vorbereitet. Später 
 
 - Kunden, Mitarbeiter und Aufträge sind durch RLS auf Mitgliedschaften der eigenen Organisation beschränkt.
 - Jobs können per Foreign Key nur Kunden und Mitarbeiter derselben Organisation referenzieren.
-- Bei fehlender Supabase-URL oder Publishable Key zeigt CleanFlow einen Konfigurationshinweis statt Demo-Daten.
-- Der Service-Role-Key wird von CleanFlow nicht benötigt und darf niemals an den Client gelangen.
+- Bei fehlender Supabase-URL oder Publishable Key zeigt Orvio einen Konfigurationshinweis statt Demo-Daten.
+- Der Service-Role-Key wird von Orvio nicht benötigt und darf niemals an den Client gelangen.

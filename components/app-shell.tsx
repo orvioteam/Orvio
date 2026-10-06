@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Menu className="h-5 w-5" />
             </button>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-900">CleanFlow</p>
+              <p className="truncate text-sm font-semibold text-slate-900">Orvio</p>
               <p className="truncate text-xs text-slate-500">{activeOrganization?.name ?? t("Arbeitsbereich")}</p>
             </div>
           </div>
@@ -53,7 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ) : appError ? (
             <section role="alert" className="rounded-lg border border-rose-200 bg-white p-6">
               <h1 className="font-semibold text-rose-800">{t("Daten konnten nicht geladen werden")}</h1>
-              <p className="mt-2 break-words text-sm text-rose-700">{appError}</p>
+              <p className="mt-2 break-words text-sm text-rose-700">{t(appError)}</p>
               <button type="button" onClick={() => void refreshData()} className="mt-4 min-h-10 rounded-md bg-rose-700 px-4 py-2 text-sm font-medium text-white">{t("Erneut versuchen")}</button>
             </section>
           ) : employeeRestricted ? (

@@ -4,6 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { PencilLine, Plus, Search } from "lucide-react";
 import { Button, Card, ConfirmDelete, EmptyState, Input, PageHeader } from "@/components/ui";
 import { useApp } from "@/components/providers";
+import { translateError } from "@/lib/i18n";
 import type { EmployeeFormInput } from "@/lib/types";
 
 const defaultEmployee: EmployeeFormInput = {
@@ -55,7 +56,7 @@ export default function EmployeesPage() {
       setEditingId(null);
       setFormOpen(false);
     } catch (error) {
-      setFormError(error instanceof Error ? t(error.message) : t("Mitarbeiter konnte nicht gespeichert werden."));
+      setFormError(translateError(language, error, "Mitarbeiter konnte nicht gespeichert werden."));
     } finally {
       setIsSaving(false);
     }
@@ -79,7 +80,7 @@ export default function EmployeesPage() {
     try {
       await deleteEmployee(employeeId);
     } catch (error) {
-      setActionError(error instanceof Error ? t(error.message) : t("Mitarbeiter konnte nicht gelöscht werden."));
+      setActionError(translateError(language, error, "Mitarbeiter konnte nicht gelöscht werden."));
     } finally {
       setBusyId(null);
     }
@@ -101,7 +102,7 @@ export default function EmployeesPage() {
         notes: employee.notes,
       }, employee.id);
     } catch (error) {
-      setActionError(error instanceof Error ? t(error.message) : t("Mitarbeiterstatus konnte nicht geändert werden."));
+      setActionError(translateError(language, error, "Mitarbeiterstatus konnte nicht geändert werden."));
     } finally {
       setBusyId(null);
     }
@@ -114,7 +115,7 @@ export default function EmployeesPage() {
       const link = await createEmployeeInvitation(employeeId);
       setInviteLinks((previous) => ({ ...previous, [employeeId]: link }));
     } catch (error) {
-      setInviteError(error instanceof Error ? t(error.message) : t("Einladung konnte nicht erstellt werden."));
+      setInviteError(translateError(language, error, "Einladung konnte nicht erstellt werden."));
     } finally {
       setInviteBusyId(null);
     }
@@ -165,7 +166,7 @@ export default function EmployeesPage() {
       ) : null}
 
       {filteredEmployees.length === 0 ? (
-        <EmptyState title={t(state.employees.length === 0 ? "Noch keine Mitarbeiter" : "Keine passenden Mitarbeiter")} description={t(state.employees.length === 0 ? "Fügen Sie Ihr Team hinzu und weisen Sie Mitarbeitende Aufträgen zu." : "Passen Sie Ihre Suche an.")} action={state.employees.length > 0
+        <EmptyState title={t(state.employees.length === 0 ? "Noch keine Mitarbeiter hinzugefügt." : "Keine passenden Mitarbeiter")} description={t(state.employees.length === 0 ? "Fügen Sie Ihr Team hinzu und weisen Sie Mitarbeitende Aufträgen zu." : "Passen Sie Ihre Suche an.")} action={state.employees.length > 0
           ? <Button type="button" variant="secondary" onClick={() => setQuery("")}>{t("Suche zurücksetzen")}</Button>
           : undefined} />
       ) : (

@@ -14,11 +14,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CleanFlow | Reinigungssoftware Schweiz",
-  description: "CleanFlow hilft Reinigungsfirmen, Kunden, Mitarbeiter und Aufträge an einem Ort zu verwalten.",
+  title: "Orvio – Aufträge einfach planen.",
+  description: "Orvio hilft mobilen Teams, Kunden, Mitarbeitende und Aufträge einfach zu organisieren.",
   openGraph: {
-    title: "CleanFlow | Reinigungssoftware Schweiz",
-    description: "Modernes SaaS für Kunden-, Mitarbeiter- und Auftragsplanung in Reinigungsfirmen.",
+    title: "Orvio – Aufträge einfach planen.",
+    description: "Orvio hilft mobilen Teams, Kunden, Mitarbeitende und Aufträge einfach zu organisieren.",
     type: "website",
   },
 };

@@ -12,7 +12,7 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { translate } from "@/lib/i18n";
+import { translate, translateError } from "@/lib/i18n";
 import {
   type AppState,
   type AppLanguage,
@@ -162,7 +162,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         <section className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <h1 className="text-xl font-semibold text-slate-900">Supabase-Konfiguration fehlt</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            CleanFlow benötigt eine echte Supabase-Projekt-URL und einen Publishable Key.
+            Orvio benötigt eine echte Supabase-Projekt-URL und einen Publishable Key.
             Tragen Sie <code>NEXT_PUBLIC_SUPABASE_URL</code> und{" "}
             <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> in <code>.env.local</code> ein und
             starten Sie den Entwicklungsserver neu. Es werden keine Demo-Daten angezeigt.
@@ -185,6 +185,10 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<AppLanguage>("de");
   const dataLoadGeneration = useRef(0);
   const t = useCallback((message: string) => translate(language, message), [language]);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   const requireClient = useCallback(() => {
     return client;
@@ -378,15 +382,17 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       if (generation !== dataLoadGeneration.current) return null;
       const message = errorMessage(error);
-      setAppError(
-        process.env.NODE_ENV === "development"
-          ? message
-          : "Ihre Organisation konnte nicht eingerichtet werden. Bitte versuchen Sie es erneut.",
+      if (process.env.NODE_ENV === "development") console.error("[app] organization data load failed", message);
+      const safeMessage = translateError(
+        "de",
+        error,
+        organizationName
+          ? "Die Registrierung konnte abgeschlossen werden, aber die Organisation konnte nicht eingerichtet werden. Bitte versuchen Sie es erneut."
+          : "Organisationsdaten konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
       );
+      setAppError(safeMessage);
       setIsReady(true);
-      return process.env.NODE_ENV === "development"
-        ? message
-        : "Ihre Organisation konnte nicht eingerichtet werden. Bitte versuchen Sie es erneut.";
+      return safeMessage;
     }
   }, [loadOrganizationData, requireClient]);
 
@@ -426,11 +432,12 @@ function ConfiguredAppProvider({ children }: { children: ReactNode }) {
       })
       .catch((error: unknown) => {
         if (isActive && generation === dataLoadGeneration.current) {
-          setAppError(
-            process.env.NODE_ENV === "development"
-              ? errorMessage(error)
-              : "Ihre Organisation konnte nicht eingerichtet werden. Bitte versuchen Sie es erneut.",
-          );
+          if (process.env.NODE_ENV === "development") console.error("[app] organization data load failed", errorMessage(error));
+          setAppError(translateError(
+            "de",
+            error,
+            "Organisationsdaten konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
+          ));
         }
       })
       .finally(() => {

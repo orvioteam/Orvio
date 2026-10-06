@@ -22,6 +22,7 @@ import { de, enUS, fr, it } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Badge, Button, EmptyState, PageHeader } from "@/components/ui";
 import { useApp } from "@/components/providers";
+import { formatLocalizedDate, formatLocalizedDateRange, translateError } from "@/lib/i18n";
 import type { Job } from "@/lib/types";
 
 const statusLabel = {
@@ -97,14 +98,10 @@ export default function DashboardPage() {
   };
 
   const periodLabel = view === "week"
-    ? format(weekStart, "M", { locale }) === format(weekEnd, "M", { locale })
-    ? `${format(weekStart, "d.")} – ${format(weekEnd, "d. MMMM yyyy", { locale })}`
-    : format(weekStart, "yyyy", { locale }) === format(weekEnd, "yyyy", { locale })
-      ? `${format(weekStart, "d. MMMM", { locale })} – ${format(weekEnd, "d. MMMM yyyy", { locale })}`
-      : `${format(weekStart, "d. MMMM yyyy", { locale })} – ${format(weekEnd, "d. MMMM yyyy", { locale })}`
+    ? formatLocalizedDateRange(language, weekStart, weekEnd)
     : view === "month"
     ? format(selectedDate, "LLLL yyyy", { locale })
-    : format(selectedDate, "EEEE, d. MMMM yyyy", { locale });
+    : formatLocalizedDate(language, selectedDate, { dateStyle: "full" });
 
   const navigationLabel = view === "week" ? "Woche" : view === "month" ? "Monat" : "Tag";
 
@@ -122,7 +119,7 @@ export default function DashboardPage() {
       <div className="mx-auto min-w-0 max-w-3xl">
         <PageHeader
           title={t("Meine Aufträge")}
-          description={format(selectedDate, "EEEE, d. MMMM yyyy", { locale })}
+          description={formatLocalizedDate(language, selectedDate, { dateStyle: "full" })}
         />
         <div className="mb-5 flex items-center justify-between gap-3">
           <button type="button" aria-label={t("Vorheriger Tag")} onClick={() => setPlannerLocation(addDays(selectedDate, -1), "day")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700">←</button>
@@ -131,7 +128,7 @@ export default function DashboardPage() {
         </div>
         {statusError ? <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{statusError}</p> : null}
         {dayJobs.length === 0 ? (
-          <EmptyState title={t("Keine Aufträge geplant.")} description={t("Es gibt keine Aufträge für Sie.")} />
+          <EmptyState title={t("Keine Aufträge geplant.")} description={t("Keine eigenen Aufträge geplant.")} />
         ) : (
           <div className="divide-y divide-slate-200 border-y border-slate-200 bg-white">
             {dayJobs.map((job) => {
@@ -158,7 +155,7 @@ export default function DashboardPage() {
                         setStatusError(null);
                         setUpdatingJobId(job.id);
                         void updateMyJobStatus(job.id, nextStatus)
-                          .catch((error: unknown) => setStatusError(error instanceof Error ? error.message : t("Auftragsstatus konnte nicht geändert werden.")))
+                          .catch((error: unknown) => setStatusError(translateError(language, error, "Auftragsstatus konnte nicht geändert werden.")))
                           .finally(() => setUpdatingJobId(null));
                       }}
                       className="min-h-12 w-full rounded-lg bg-[#176b4a] px-4 text-base font-semibold text-white hover:bg-[#11563b] disabled:opacity-60"
@@ -179,9 +176,9 @@ export default function DashboardPage() {
     <div className="min-w-0">
       <PageHeader
         title={view === "day"
-          ? (isToday(selectedDate) ? t("Heute") : format(selectedDate, "EEEE, d. MMMM yyyy", { locale }))
+          ? (isToday(selectedDate) ? t("Heute") : formatLocalizedDate(language, selectedDate, { dateStyle: "full" }))
           : t(navigationLabel)}
-        description={view === "day" && isToday(selectedDate) ? format(selectedDate, "d. MMMM yyyy", { locale }) : undefined}
+        description={view === "day" && isToday(selectedDate) ? formatLocalizedDate(language, selectedDate) : undefined}
         action={<Button type="button" onClick={() => router.push(`/jobs?new=1&date=${dateKey}`)}><Plus className="mr-2 h-4 w-4" /> {t("Auftrag")}</Button>}
       />
 
@@ -219,7 +216,10 @@ export default function DashboardPage() {
 
       {view === "day" ? (
         dayJobs.length === 0 ? (
-          <EmptyState title={t("Keine Aufträge geplant.")} description={t("Für diesen Tag sind keine Einsätze geplant.")} />
+          <EmptyState
+            title={isToday(selectedDate) ? t("Heute sind keine Aufträge geplant.") : t("Keine Aufträge geplant.")}
+            description={t("Für diesen Tag sind keine Einsätze geplant.")}
+          />
         ) : (
           <div className="divide-y divide-slate-200 border-y border-slate-200">
             {dayJobs.map((job) => {
@@ -302,7 +302,7 @@ export default function DashboardPage() {
                   key={dayKey}
                   type="button"
                   onClick={() => setPlannerLocation(day, "day")}
-                  aria-label={`${format(day, "d. MMMM yyyy", { locale })}${count ? `, ${count} ${t(count === 1 ? "Auftrag" : "Aufträge")}` : ""}`}
+                  aria-label={`${formatLocalizedDate(language, day)}${count ? `, ${count} ${t(count === 1 ? "Auftrag" : "Aufträge")}` : ""}`}
                   className={`flex h-[4.25rem] min-w-0 flex-col overflow-hidden border-b border-r border-slate-100 p-1 text-left transition-colors hover:bg-slate-50 sm:h-[5.5rem] sm:p-2 ${!isSameMonth(day, selectedDate) ? "bg-slate-50/70 text-slate-400" : "text-slate-800"}`}
                 >
                   <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${isToday(day) ? "bg-[#176b4a] font-semibold text-white" : ""}`}>{format(day, "d")}</span>

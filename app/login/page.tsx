@@ -8,14 +8,17 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createClient } from "@/lib/supabase/client";
 import { Button, Input } from "@/components/ui";
+import { useApp } from "@/components/providers";
 
-const loginSchema = z.object({
-  email: z.string().email("Bitte geben Sie eine gültige E-Mail ein."),
-  password: z.string().min(6, "Das Passwort muss mindestens 6 Zeichen haben."),
+const createLoginSchema = (t: (message: string) => string) => z.object({
+  email: z.string().email(t("Bitte geben Sie eine gültige E-Mail ein.")),
+  password: z.string().min(6, t("Das Passwort muss mindestens 6 Zeichen haben.")),
 });
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useApp();
+  const loginSchema = createLoginSchema(t);
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -48,15 +51,15 @@ export default function LoginPage() {
         }
         form.setError("root", {
           message: error.code === "invalid_credentials" || error.message === "Invalid login credentials"
-            ? "E-Mail oder Passwort ist nicht korrekt."
-            : "Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
+            ? t("E-Mail oder Passwort ist nicht korrekt.")
+            : t("Anmeldedaten konnten nicht überprüft werden."),
         });
         return;
       }
 
       if (!data.session) {
         form.setError("root", {
-          message: "Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
+          message: t("Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut."),
         });
         return;
       }
@@ -68,7 +71,7 @@ export default function LoginPage() {
       router.refresh();
     } catch {
       form.setError("root", {
-        message: "Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
+        message: t("Anmeldung konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut."),
       });
     }
   };
@@ -77,31 +80,31 @@ export default function LoginPage() {
     <main className="grid min-h-screen bg-white md:grid-cols-2">
       <section className="flex min-h-[32vh] flex-col justify-between border-b border-slate-200 bg-[#f4f5f1] px-6 py-6 sm:px-10 md:min-h-screen md:border-b-0 md:border-r md:px-12 md:py-10 lg:px-20">
         <Link href="/" className="flex w-fit items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[#176b4a] text-xs font-semibold tracking-wide text-white">CF</span>
-          <span className="text-base font-semibold tracking-tight text-slate-900">CleanFlow</span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[#176b4a] text-xs font-semibold tracking-wide text-white">OV</span>
+          <span className="text-base font-semibold tracking-tight text-slate-900">Orvio</span>
         </Link>
         <div className="max-w-md py-8 md:py-0">
-          <p className="mb-4 text-xs font-medium uppercase tracking-[0.16em] text-[#176b4a]">Einsatzplanung für Reinigungsunternehmen</p>
-          <h1 className="text-3xl font-semibold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">Aufträge einfach planen.</h1>
-          <p className="mt-5 max-w-sm text-base leading-7 text-slate-600">Kunden, Mitarbeitende und Einsätze übersichtlich an einem Ort organisieren.</p>
+          <p className="mb-4 text-xs font-medium uppercase tracking-[0.16em] text-[#176b4a]">{t("Einsatzplanung für mobile Teams")}</p>
+          <h1 className="text-3xl font-semibold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">{t("Aufträge einfach planen.")}</h1>
+          <p className="mt-5 max-w-sm text-base leading-7 text-slate-600">{t("Kunden, Mitarbeitende und Einsätze übersichtlich an einem Ort organisieren.")}</p>
         </div>
-        <p className="hidden text-xs text-slate-500 md:block">Ruhig planen. Verlässlich arbeiten.</p>
+        <p className="hidden text-xs text-slate-500 md:block">{t("Ruhig planen. Verlässlich arbeiten.")}</p>
       </section>
 
       <section className="flex items-center justify-center px-5 py-10 sm:px-10 md:px-12 lg:px-20">
         <div className="w-full max-w-sm">
           <div className="mb-8">
-            <p className="text-sm font-medium text-[#176b4a]">Willkommen zurück</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Anmelden</h2>
-            <p className="mt-2 text-sm text-slate-500">Melden Sie sich an, um Ihren Arbeitsbereich zu öffnen.</p>
+            <p className="text-sm font-medium text-[#176b4a]">{t("Willkommen zurück")}</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{t("Anmelden")}</h2>
+            <p className="mt-2 text-sm text-slate-500">{t("Melden Sie sich an, um Ihren Arbeitsbereich zu öffnen.")}</p>
           </div>
 
           <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             <div>
               <Input
-                label="E-Mail"
+                label={t("E-Mail")}
                 type="email"
-                placeholder="name@firma.ch"
+                placeholder="name@example.com"
                 {...form.register("email")}
                 aria-invalid={Boolean(form.formState.errors.email)}
                 autoComplete="email"
@@ -111,9 +114,9 @@ export default function LoginPage() {
 
             <div>
               <Input
-                label="Passwort"
+                label={t("Passwort")}
                 type="password"
-                placeholder="Passwort eingeben"
+                placeholder={t("Passwort eingeben")}
                 {...form.register("password")}
                 aria-invalid={Boolean(form.formState.errors.password)}
                 autoComplete="current-password"
@@ -125,12 +128,12 @@ export default function LoginPage() {
               <p role="alert" className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">{form.formState.errors.root.message}</p>
             ) : null}
 
-            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? "Anmeldung läuft…" : "Anmelden"} {!form.formState.isSubmitting ? <ArrowRight className="ml-2 h-4 w-4" /> : null}</Button>
+            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? t("Anmeldung läuft…") : t("Anmelden")} {!form.formState.isSubmitting ? <ArrowRight className="ml-2 h-4 w-4" /> : null}</Button>
           </form>
 
           <p className="mt-7 border-t border-slate-200 pt-5 text-center text-sm text-slate-600">
-            Noch kein Konto?{" "}
-            <Link href="/register" className="font-medium text-[#176b4a] hover:underline">Registrieren</Link>
+            {t("Noch kein Konto?")}{" "}
+            <Link href="/register" className="font-medium text-[#176b4a] hover:underline">{t("Registrieren")}</Link>
           </p>
         </div>
       </section>

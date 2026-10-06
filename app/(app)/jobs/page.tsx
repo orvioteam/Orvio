@@ -7,6 +7,7 @@ import { de, enUS, fr, it } from "date-fns/locale";
 import { PencilLine, Plus, Search } from "lucide-react";
 import { Badge, Button, Card, ConfirmDelete, EmptyState, Input, PageHeader, Select } from "@/components/ui";
 import { useApp } from "@/components/providers";
+import { translateError } from "@/lib/i18n";
 import type { Job, JobFormInput, JobStatus } from "@/lib/types";
 
 const defaultJob = (): JobFormInput => ({
@@ -124,7 +125,7 @@ function JobsPageContent() {
       }, editingId ?? undefined);
       closeForm();
     } catch (error) {
-      setFormError(error instanceof Error ? t(error.message) : t("Auftrag konnte nicht gespeichert werden."));
+      setFormError(translateError(language, error, "Auftrag konnte nicht gespeichert werden."));
     } finally {
       setIsSaving(false);
     }
@@ -151,7 +152,7 @@ function JobsPageContent() {
         status,
       }, jobId);
     } catch (error) {
-      setActionError(error instanceof Error ? t(error.message) : t("Status konnte nicht geändert werden."));
+      setActionError(translateError(language, error, "Status konnte nicht geändert werden."));
     } finally {
       setBusyJobId(null);
     }
@@ -163,7 +164,7 @@ function JobsPageContent() {
     try {
       await deleteJob(jobId);
     } catch (error) {
-      setActionError(error instanceof Error ? t(error.message) : t("Auftrag konnte nicht gelöscht werden."));
+      setActionError(translateError(language, error, "Auftrag konnte nicht gelöscht werden."));
     } finally {
       setBusyJobId(null);
     }

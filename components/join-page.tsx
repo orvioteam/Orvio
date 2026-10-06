@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button, Input } from "@/components/ui";
 import { useApp } from "@/components/providers";
 import { createClient } from "@/lib/supabase/client";
+import { formatLocalizedDate, translateError } from "@/lib/i18n";
 
 type InvitationDetails = {
   invitation_status: "valid" | "expired" | "accepted";
@@ -51,19 +52,19 @@ const translateInvitationError = (message: string) => ({
   "INVITE_ACCEPT: Invitation is invalid or expired": "Einladung ist ungültig oder abgelaufen.",
   "INVITE_ACCEPT: Invitation already used": "Diese Einladung wurde bereits verwendet.",
   "INVITE_ACCEPT: Signed-in email does not match this invitation": "Die E-Mail-Adresse stimmt nicht mit der Einladung überein.",
-  "EMPLOYEE_LINK: Employee does not belong to the invitation organization": "Der Mitarbeiterdatensatz gehört nicht zur Organisation dieser Einladung.",
+  "EMPLOYEE_LINK: Employee does not belong to the invitation organization": "Einladung ist ungültig oder abgelaufen.",
   "EMPLOYEE_LINK: Employee is already linked to another account": "Dieser Mitarbeiter ist bereits mit einem anderen Konto verknüpft.",
-  "EMPLOYEE_LINK: Employee account could not be linked": "Das Mitarbeiterkonto konnte nicht mit dem Mitarbeiterdatensatz verknüpft werden.",
+  "EMPLOYEE_LINK: Employee account could not be linked": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
   "MEMBERSHIP: Account already belongs to another organization": "Dieses Konto gehört bereits zu einer anderen Organisation.",
   "MEMBERSHIP: Account already has a non-employee role in this organization": "Dieses Konto besitzt in der Organisation bereits eine andere Rolle.",
-  "MEMBERSHIP: Employee membership could not be created": "Die Mitarbeiter-Mitgliedschaft konnte nicht erstellt werden.",
-  "MEMBERSHIP: Employee membership was not created": "Die Mitarbeiter-Mitgliedschaft wurde nicht bestätigt.",
-  "MEMBERSHIP: Invitation acceptance did not return an organization.": "Die Organisation zur Einladung konnte nicht ermittelt werden.",
+  "MEMBERSHIP: Employee membership could not be created": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+  "MEMBERSHIP: Employee membership was not created": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+  "MEMBERSHIP: Invitation acceptance did not return an organization.": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
 }[message] ?? message);
 
 export function JoinPageClient({ token }: { token: string }) {
   const router = useRouter();
-  const { refreshData, t } = useApp();
+  const { refreshData, language, t } = useApp();
   const [invitation, setInvitation] = useState<InvitationDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmationRequired, setConfirmationRequired] = useState(false);
@@ -177,10 +178,10 @@ export function JoinPageClient({ token }: { token: string }) {
       logInviteDiagnostic("AUTH", { status: authData?.session?.user ? "authenticated" : "anonymous" });
       if (active && authData?.session?.user) await acceptInvitation();
     })().catch((loadError: unknown) => {
-      if (active) setError(t(translateInvitationError(loadError instanceof Error ? loadError.message : "Einladung ist ungültig oder abgelaufen.")));
+      if (active) setError(translateError(language, new Error(translateInvitationError(loadError instanceof Error ? loadError.message : "")), "Diese Einladung ist nicht mehr gültig."));
     });
     return () => { active = false; };
-  }, [acceptInvitation, supabase, t, token]);
+  }, [acceptInvitation, language, supabase, t, token]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -212,7 +213,7 @@ export function JoinPageClient({ token }: { token: string }) {
       }
       await acceptInvitation();
     } catch (submitError) {
-      setError(t(translateInvitationError(submitError instanceof Error ? submitError.message : "Einladung ist ungültig oder abgelaufen.")));
+      setError(translateError(language, new Error(translateInvitationError(submitError instanceof Error ? submitError.message : "")), "Diese Einladung ist nicht mehr gültig."));
     } finally {
       setIsSubmitting(false);
     }
@@ -222,7 +223,7 @@ export function JoinPageClient({ token }: { token: string }) {
     <main className="min-h-screen bg-white px-4 py-10 sm:px-8">
       <div className="mx-auto max-w-md">
           <Link href="/" className="mb-10 inline-flex items-center text-lg font-semibold tracking-tight text-slate-900">Orvio</Link>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{t("Team beitreten")}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{t("Team mit Orvio beitreten")}</h1>
           <p className="mt-2 text-sm text-slate-600">{t("Sie wurden eingeladen, einem Team beizutreten.")}</p>
           {invitation ? (
             <p className="mt-5 text-sm text-slate-700"><span className="font-medium">{t("Firma")}:</span> {invitation.organization_name}</p>
@@ -238,7 +239,7 @@ export function JoinPageClient({ token }: { token: string }) {
               <Input label={t("Name")} name="fullName" autoComplete="name" required value={fullName} onChange={(event) => setFullName(event.target.value)} />
               <Input label={t("E-Mail")} type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
               <Input label={t("Passwort")} name="password" type="password" autoComplete="new-password" minLength={8} required />
-              <p className="text-xs text-slate-500">{t("Einladung läuft ab am")} {new Date(invitation.expires_at).toLocaleDateString()}</p>
+              <p className="text-xs text-slate-500">{t("Einladung läuft ab am")} {formatLocalizedDate(language, new Date(invitation.expires_at))}</p>
               <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting ? t("Wird gespeichert…") : t("Konto erstellen")}</Button>
               <p className="text-center text-sm text-slate-600">{t("Sie haben bereits ein Konto?")}{" "}<Link className="font-medium text-emerald-800 underline" href={`/login?next=${encodeURIComponent(`/join/${token}`)}`}>{t("Anmelden")}</Link></p>
             </form>

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, Card, Input, PageHeader, Select } from "@/components/ui";
 import { useApp } from "@/components/providers";
-import { languageNames } from "@/lib/i18n";
+import { languageNames, translateError } from "@/lib/i18n";
 import type { AppLanguage, Organization } from "@/lib/types";
 
 export default function SettingsPage() {
@@ -52,7 +52,7 @@ export default function SettingsPage() {
       await updateOrganizationSettings(updated);
       setSaved(true);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : t("Einstellungen konnten nicht gespeichert werden."));
+      setError(translateError(language, saveError, "Einstellungen konnten nicht gespeichert werden."));
     } finally {
       setIsSaving(false);
     }
@@ -63,7 +63,7 @@ export default function SettingsPage() {
     try {
       await setLanguage(nextLanguage);
     } catch (languageError) {
-      setError(languageError instanceof Error ? languageError.message : t("Sprache konnte nicht gespeichert werden."));
+      setError(translateError(language, languageError, "Sprache konnte nicht gespeichert werden."));
     }
   };
 
@@ -86,7 +86,7 @@ export default function SettingsPage() {
       setConfirmPassword("");
       setSaved(true);
     } catch (passwordError) {
-      setError(passwordError instanceof Error ? passwordError.message : t("Passwort konnte nicht geändert werden."));
+      setError(translateError(language, passwordError, "Passwort konnte nicht geändert werden."));
     } finally {
       setIsSaving(false);
     }
@@ -100,7 +100,7 @@ export default function SettingsPage() {
       router.replace("/login");
       router.refresh();
     } catch (signOutError) {
-      setError(signOutError instanceof Error ? signOutError.message : t("Abmeldung fehlgeschlagen."));
+      setError(translateError(language, signOutError, "Abmeldung fehlgeschlagen."));
       setIsSigningOut(false);
     }
   };
@@ -178,7 +178,7 @@ export default function SettingsPage() {
           <form onSubmit={(event) => void handlePasswordChange(event)} className="space-y-4">
             <Input label={t("Neues Passwort")} type="password" autoComplete="new-password" minLength={8} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
             <Input label={t("Passwort bestätigen")} type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
-            <Button type="submit" variant="secondary" disabled={isSaving}>{t("Passwort ändern")}</Button>
+            <Button type="submit" variant="secondary" disabled={isSaving}>{isSaving ? t("Wird gespeichert…") : t("Passwort ändern")}</Button>
           </form>
         </Card>
 
