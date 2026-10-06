@@ -3,6 +3,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
+import { de, enUS, fr, it } from "date-fns/locale";
 import { PencilLine, Plus, Search } from "lucide-react";
 import { Badge, Button, Card, ConfirmDelete, EmptyState, Input, PageHeader, Select } from "@/components/ui";
 import { useApp } from "@/components/providers";
@@ -52,7 +53,8 @@ function jobToFormInput(job: Job): JobFormInput {
 function JobsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { state, saveJob, deleteJob } = useApp();
+  const { state, saveJob, deleteJob, language, t } = useApp();
+  const locale = { de, en: enUS, fr, it }[language];
   const [localQuery, setLocalQuery] = useState<string | null>(null);
   const query = localQuery ?? searchParams.get("search") ?? "";
   const [statusFilter, setStatusFilter] = useState<"all" | JobStatus>("all");
@@ -101,15 +103,15 @@ function JobsPageContent() {
     event.preventDefault();
     setFormError(null);
     if (!draft.customerId) {
-      setFormError("Bitte wählen Sie einen Kunden aus.");
+      setFormError(t("Bitte wählen Sie einen Kunden aus."));
       return;
     }
     if (!draft.employeeId) {
-      setFormError("Bitte wählen Sie einen Mitarbeiter aus.");
+      setFormError(t("Bitte wählen Sie einen Mitarbeiter aus."));
       return;
     }
     if (draft.endTime && draft.endTime < draft.startTime) {
-      setFormError("Die Endzeit muss nach der Startzeit liegen.");
+      setFormError(t("Die Endzeit muss nach der Startzeit liegen."));
       return;
     }
 
@@ -118,11 +120,11 @@ function JobsPageContent() {
       const customer = state.customers.find((entry) => entry.id === draft.customerId);
       await saveJob({
         ...draft,
-        title: draft.title.trim() || customer?.companyName || customer?.name || "Reinigungsauftrag",
+        title: draft.title.trim() || customer?.companyName || customer?.name || t("Reinigungsauftrag"),
       }, editingId ?? undefined);
       closeForm();
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Auftrag konnte nicht gespeichert werden.");
+      setFormError(error instanceof Error ? t(error.message) : t("Auftrag konnte nicht gespeichert werden."));
     } finally {
       setIsSaving(false);
     }
@@ -149,7 +151,7 @@ function JobsPageContent() {
         status,
       }, jobId);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Status konnte nicht geändert werden.");
+      setActionError(error instanceof Error ? t(error.message) : t("Status konnte nicht geändert werden."));
     } finally {
       setBusyJobId(null);
     }
@@ -161,7 +163,7 @@ function JobsPageContent() {
     try {
       await deleteJob(jobId);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Auftrag konnte nicht gelöscht werden.");
+      setActionError(error instanceof Error ? t(error.message) : t("Auftrag konnte nicht gelöscht werden."));
     } finally {
       setBusyJobId(null);
     }
@@ -170,26 +172,26 @@ function JobsPageContent() {
   return (
     <div className="min-w-0">
       <PageHeader
-        title="Aufträge"
-        description="Alle Einsätze Ihrer Organisation."
-        action={<Button type="button" onClick={openNewJob}><Plus className="mr-2 h-4 w-4" /> Auftrag hinzufügen</Button>}
+        title={t("Aufträge")}
+        description={t("Alle Einsätze Ihrer Organisation.")}
+        action={<Button type="button" onClick={openNewJob}><Plus className="mr-2 h-4 w-4" /> {t("Auftrag hinzufügen")}</Button>}
       />
 
       <div className="mb-4 max-w-xl">
         <label className="relative block">
-          <span className="sr-only">Aufträge suchen</span>
+          <span className="sr-only">{t("Aufträge suchen")}</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input value={query} onChange={(event) => setLocalQuery(event.target.value)} placeholder="Aufträge suchen..." className="min-h-11 w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100" />
+          <input value={query} onChange={(event) => setLocalQuery(event.target.value)} placeholder={t("Aufträge suchen...")} className="min-h-11 w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100" />
         </label>
       </div>
-      <div role="group" aria-label="Aufträge nach Status filtern" className="mb-5 flex flex-wrap gap-2">
+      <div role="group" aria-label={t("Aufträge nach Status filtern")} className="mb-5 flex flex-wrap gap-2">
         {([
           ["all", "Alle"],
           ["scheduled", "Geplant"],
           ["in_progress", "In Arbeit"],
           ["completed", "Erledigt"],
         ] as const).map(([value, label]) => (
-          <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={`min-h-10 rounded-md border px-3.5 text-sm font-medium transition-colors ${statusFilter === value ? "border-[#176b4a] bg-[#176b4a] text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>{label}</button>
+          <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={`min-h-10 rounded-md border px-3.5 text-sm font-medium transition-colors ${statusFilter === value ? "border-[#176b4a] bg-[#176b4a] text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>{t(label)}</button>
         ))}
       </div>
 
@@ -197,44 +199,44 @@ function JobsPageContent() {
 
       {formOpen ? (
         <Card className="mb-6">
-          <h2 className="mb-4 text-lg font-semibold">{editingId ? "Auftrag bearbeiten" : "Neuen Auftrag erstellen"}</h2>
+          <h2 className="mb-4 text-lg font-semibold">{t(editingId ? "Auftrag bearbeiten" : "Neuen Auftrag erstellen")}</h2>
           {state.customers.length === 0 ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              Legen Sie zuerst einen Kunden an, bevor Sie einen Auftrag erstellen.
-              <Button type="button" variant="secondary" className="mt-3 w-full sm:w-auto" onClick={() => router.push("/customers")}>Kunden öffnen</Button>
+              {t("Legen Sie zuerst einen Kunden an, bevor Sie einen Auftrag erstellen.")}
+              <Button type="button" variant="secondary" className="mt-3 w-full sm:w-auto" onClick={() => router.push("/customers")}>{t("Kunden öffnen")}</Button>
             </div>
           ) : state.employees.filter((employee) => employee.active).length === 0 ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              Legen Sie zuerst einen aktiven Mitarbeiter an.
-              <Button type="button" variant="secondary" className="mt-3 w-full sm:w-auto" onClick={() => router.push("/employees")}>Mitarbeiter öffnen</Button>
+              {t("Legen Sie zuerst einen aktiven Mitarbeiter an.")}
+              <Button type="button" variant="secondary" className="mt-3 w-full sm:w-auto" onClick={() => router.push("/employees")}>{t("Mitarbeiter öffnen")}</Button>
             </div>
           ) : (
             <form onSubmit={(event) => void handleSubmit(event)} className="grid min-w-0 gap-4 md:grid-cols-2">
-              <Select label="Kunde" required value={draft.customerId} onChange={(event) => setDraft((value) => ({ ...value, customerId: event.target.value }))}>
-                <option value="">Bitte auswählen</option>
-                {state.customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}{customer.companyName ? ` · ${customer.companyName}` : " · Privat"}</option>)}
+              <Select label={t("Kunde")} required value={draft.customerId} onChange={(event) => setDraft((value) => ({ ...value, customerId: event.target.value }))}>
+                <option value="">{t("Bitte auswählen")}</option>
+                {state.customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}{customer.companyName ? ` · ${customer.companyName}` : ` · ${t("Privat")}`}</option>)}
               </Select>
-              <Input label="Datum" type="date" required value={draft.date} onChange={(event) => setDraft((value) => ({ ...value, date: event.target.value }))} />
+              <Input label={t("Datum")} type="date" required value={draft.date} onChange={(event) => setDraft((value) => ({ ...value, date: event.target.value }))} />
               <div className="grid grid-cols-2 gap-3">
-                <Input label="Startzeit" type="time" required value={draft.startTime} onChange={(event) => setDraft((value) => ({ ...value, startTime: event.target.value }))} />
-                <Input label="Endzeit" type="time" value={draft.endTime} onChange={(event) => setDraft((value) => ({ ...value, endTime: event.target.value }))} />
+                <Input label={t("Startzeit")} type="time" required value={draft.startTime} onChange={(event) => setDraft((value) => ({ ...value, startTime: event.target.value }))} />
+                <Input label={t("Endzeit")} type="time" value={draft.endTime} onChange={(event) => setDraft((value) => ({ ...value, endTime: event.target.value }))} />
               </div>
-              <Select label="Mitarbeiter" required value={draft.employeeId} onChange={(event) => setDraft((value) => ({ ...value, employeeId: event.target.value }))}>
-                <option value="">Bitte auswählen</option>
-                {state.employees.filter((employee) => employee.active || employee.id === draft.employeeId).map((employee) => <option key={employee.id} value={employee.id}>{employee.firstName} {employee.lastName}{employee.active ? "" : " (inaktiv)"}</option>)}
+              <Select label={t("Mitarbeiter")} required value={draft.employeeId} onChange={(event) => setDraft((value) => ({ ...value, employeeId: event.target.value }))}>
+                <option value="">{t("Bitte auswählen")}</option>
+                {state.employees.filter((employee) => employee.active || employee.id === draft.employeeId).map((employee) => <option key={employee.id} value={employee.id}>{employee.firstName} {employee.lastName}{employee.active ? "" : ` (${t("Inaktiv")})`}</option>)}
               </Select>
-              <Input label="Einsatzort / Adresse" value={draft.address} onChange={(event) => setDraft((value) => ({ ...value, address: event.target.value }))} />
+              <Input label={t("Einsatzort / Adresse")} value={draft.address} onChange={(event) => setDraft((value) => ({ ...value, address: event.target.value }))} />
               <label className="space-y-2 text-sm font-medium text-slate-700 md:col-span-2">
-                <span>Notizen</span>
+                <span>{t("Notizen")}</span>
                 <textarea value={draft.notes} onChange={(event) => setDraft((value) => ({ ...value, notes: event.target.value }))} rows={3} className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />
               </label>
-              {editingId ? <Select label="Status" value={draft.status} onChange={(event) => setDraft((value) => ({ ...value, status: event.target.value as JobStatus }))}>
-                <option value="scheduled">Geplant</option><option value="in_progress">In Bearbeitung</option><option value="completed">Abgeschlossen</option><option value="cancelled">Storniert</option>
+              {editingId ? <Select label={t("Status")} value={draft.status} onChange={(event) => setDraft((value) => ({ ...value, status: event.target.value as JobStatus }))}>
+                <option value="scheduled">{t("Geplant")}</option><option value="in_progress">{t("In Bearbeitung")}</option><option value="completed">{t("Abgeschlossen")}</option><option value="cancelled">{t("Storniert")}</option>
               </Select> : null}
               {formError ? <p role="alert" className="md:col-span-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{formError}</p> : null}
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end md:col-span-2">
-                <Button type="button" variant="secondary" onClick={closeForm}>Abbrechen</Button>
-                <Button type="submit" disabled={isSaving}>{isSaving ? "Wird gespeichert…" : editingId ? "Änderungen speichern" : "Auftrag erstellen"}</Button>
+                <Button type="button" variant="secondary" onClick={closeForm}>{t("Abbrechen")}</Button>
+                <Button type="submit" disabled={isSaving}>{isSaving ? t("Wird gespeichert…") : editingId ? t("Änderungen speichern") : t("Auftrag erstellen")}</Button>
               </div>
             </form>
           )}
@@ -243,10 +245,10 @@ function JobsPageContent() {
 
       {filteredJobs.length === 0 ? (
         <EmptyState
-          title={state.jobs.length === 0 ? "Noch keine Aufträge" : "Keine passenden Aufträge"}
-          description={state.jobs.length === 0 ? "Erstellen Sie Ihren ersten Auftrag, um einen Einsatz zu planen." : "Passen Sie Suche oder Statusfilter an."}
+          title={t(state.jobs.length === 0 ? "Noch keine Aufträge" : "Keine passenden Aufträge")}
+          description={t(state.jobs.length === 0 ? "Erstellen Sie Ihren ersten Auftrag, um einen Einsatz zu planen." : "Passen Sie Suche oder Statusfilter an.")}
           action={state.jobs.length > 0
-            ? <Button type="button" variant="secondary" onClick={() => { setLocalQuery(""); setStatusFilter("all"); }}>Filter zurücksetzen</Button>
+            ? <Button type="button" variant="secondary" onClick={() => { setLocalQuery(""); setStatusFilter("all"); }}>{t("Filter zurücksetzen")}</Button>
             : undefined}
         />
       ) : (
@@ -258,19 +260,19 @@ function JobsPageContent() {
               return (
                 <Card key={job.id} className="space-y-3 p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0"><p className="break-words font-semibold">{customer?.companyName || customer?.name || "Kunde nicht verfügbar"}</p></div>
-                    <Badge status={job.status}>{statusLabel[job.status]}</Badge>
+                    <div className="min-w-0"><p className="break-words font-semibold">{customer?.companyName || customer?.name || t("Kunde nicht verfügbar")}</p></div>
+                    <Badge status={job.status}>{t(statusLabel[job.status])}</Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm text-slate-600">
-                    <p>{job.date}</p><p>{job.startTime}{job.endTime ? `–${job.endTime}` : ""}</p>
-                    <p className="col-span-2">{employee ? `${employee.firstName} ${employee.lastName}` : "Nicht zugewiesen"}</p>
+                    <p>{format(new Date(`${job.date}T00:00:00`), "P", { locale })}</p><p>{job.startTime}{job.endTime ? `–${job.endTime}` : ""}</p>
+                    <p className="col-span-2">{employee ? `${employee.firstName} ${employee.lastName}` : t("Nicht zugewiesen")}</p>
                     {job.address ? <p className="col-span-2 break-words">{job.address}</p> : null}
                   </div>
-                  <Select label="Status ändern" value={job.status} disabled={busyJobId === job.id} onChange={(event) => void changeStatus(job.id, event.target.value as JobStatus)}>
-                    <option value="scheduled">Geplant</option><option value="in_progress">In Bearbeitung</option><option value="completed">Abgeschlossen</option><option value="cancelled">Storniert</option>
+                  <Select label={t("Status ändern")} value={job.status} disabled={busyJobId === job.id} onChange={(event) => void changeStatus(job.id, event.target.value as JobStatus)}>
+                    <option value="scheduled">{t("Geplant")}</option><option value="in_progress">{t("In Bearbeitung")}</option><option value="completed">{t("Abgeschlossen")}</option><option value="cancelled">{t("Storniert")}</option>
                   </Select>
                   <div className="flex gap-2 border-t border-slate-100 pt-3">
-                    <Button type="button" variant="secondary" className="min-h-11 flex-1" onClick={() => startEdit(job.id)}><PencilLine className="mr-2 h-4 w-4" /> Bearbeiten</Button>
+                    <Button type="button" variant="secondary" className="min-h-11 flex-1" onClick={() => startEdit(job.id)}><PencilLine className="mr-2 h-4 w-4" /> {t("Bearbeiten")}</Button>
                     <ConfirmDelete label={job.title} disabled={busyJobId === job.id} onConfirm={() => void handleDelete(job.id)} />
                   </div>
                 </Card>
@@ -280,17 +282,17 @@ function JobsPageContent() {
           <Card className="hidden overflow-hidden p-0 lg:block">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[800px] text-left text-sm">
-                <thead className="bg-[#f8f9f7] text-xs uppercase tracking-wide text-slate-500"><tr>{["Datum", "Zeit", "Kunde", "Mitarbeiter", "Status", "Aktionen"].map((heading) => <th key={heading} className="px-4 py-3 font-medium">{heading}</th>)}</tr></thead>
+                <thead className="bg-[#f8f9f7] text-xs uppercase tracking-wide text-slate-500"><tr>{["Datum", "Zeit", "Kunde", "Mitarbeiter", "Status", "Aktionen"].map((heading) => <th key={heading} className="px-4 py-3 font-medium">{t(heading)}</th>)}</tr></thead>
                 <tbody>{filteredJobs.map((job) => {
                   const customer = state.customers.find((entry) => entry.id === job.customerId);
                   const employee = state.employees.find((entry) => entry.id === job.employeeId);
                   return <tr key={job.id} className="border-t border-slate-100 align-middle hover:bg-slate-50/70">
-                    <td className="px-4 py-4">{job.date}</td><td className="px-4 py-4">{job.startTime}{job.endTime ? ` – ${job.endTime}` : ""}</td>
-                    <td className="px-4 py-4">{customer?.companyName || customer?.name || "Kunde nicht verfügbar"}</td>
-                    <td className="px-4 py-4">{employee ? `${employee.firstName} ${employee.lastName}` : "Nicht zugewiesen"}</td>
-                    <td className="px-4 py-4"><Select aria-label={`Status für ${job.title}`} value={job.status} disabled={busyJobId === job.id} onChange={(event) => void changeStatus(job.id, event.target.value as JobStatus)} className="min-w-40"><option value="scheduled">Geplant</option><option value="in_progress">In Bearbeitung</option><option value="completed">Abgeschlossen</option><option value="cancelled">Storniert</option></Select></td>
+                    <td className="px-4 py-4">{format(new Date(`${job.date}T00:00:00`), "P", { locale })}</td><td className="px-4 py-4">{job.startTime}{job.endTime ? ` – ${job.endTime}` : ""}</td>
+                    <td className="px-4 py-4">{customer?.companyName || customer?.name || t("Kunde nicht verfügbar")}</td>
+                    <td className="px-4 py-4">{employee ? `${employee.firstName} ${employee.lastName}` : t("Nicht zugewiesen")}</td>
+                    <td className="px-4 py-4"><Select aria-label={`${t("Status")} ${job.title}`} value={job.status} disabled={busyJobId === job.id} onChange={(event) => void changeStatus(job.id, event.target.value as JobStatus)} className="min-w-40"><option value="scheduled">{t("Geplant")}</option><option value="in_progress">{t("In Bearbeitung")}</option><option value="completed">{t("Abgeschlossen")}</option><option value="cancelled">{t("Storniert")}</option></Select></td>
                     <td className="px-4 py-4"><div className="flex justify-end gap-2">
-                      <button type="button" onClick={() => startEdit(job.id)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100" aria-label={`Auftrag ${job.title} bearbeiten`}><PencilLine className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => startEdit(job.id)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100" aria-label={`${t("Auftrag")} ${job.title} ${t("Bearbeiten")}`}><PencilLine className="h-4 w-4" /></button>
                       <ConfirmDelete label={job.title} disabled={busyJobId === job.id} onConfirm={() => void handleDelete(job.id)} />
                     </div></td>
                   </tr>;

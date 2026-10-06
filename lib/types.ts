@@ -1,4 +1,5 @@
-export type OrganizationRole = "owner" | "manager" | "admin";
+export type OrganizationRole = "owner" | "employee";
+export type AppLanguage = "de" | "en" | "fr" | "it";
 export type JobStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
 
 export interface Organization {
@@ -7,6 +8,9 @@ export interface Organization {
   phone: string;
   email: string;
   address: string;
+  workdayStart: string;
+  workdayEnd: string;
+  weekStartsOn: number;
   createdAt: string;
 }
 
@@ -15,6 +19,7 @@ export interface OrganizationMember {
   organizationId: string;
   userId: string;
   role: OrganizationRole;
+  language: AppLanguage;
   createdAt: string;
 }
 
@@ -43,6 +48,7 @@ export interface Employee {
   color: string;
   active: boolean;
   notes: string;
+  userId: string | null;
   createdAt: string;
   updatedAt: string;
 }

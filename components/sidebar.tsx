@@ -6,17 +6,20 @@ import { BriefcaseBusiness, CalendarDays, LogOut, Settings, Users, UserRound } f
 import { useState } from "react";
 import { useApp } from "@/components/providers";
 
-const navItems = [
-  { href: "/dashboard", label: "Heute", icon: CalendarDays },
-  { href: "/jobs", label: "Aufträge", icon: BriefcaseBusiness },
-  { href: "/customers", label: "Kunden", icon: Users },
-  { href: "/employees", label: "Mitarbeiter", icon: UserRound },
-];
-
 export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { activeOrganization, currentUser, signOut } = useApp();
+  const { activeOrganization, currentRole, currentUser, signOut, t } = useApp();
+  const navItems = currentRole === "owner"
+    ? [
+      { href: "/dashboard", label: "Heute", icon: CalendarDays },
+      { href: "/jobs", label: "Aufträge", icon: BriefcaseBusiness },
+      { href: "/customers", label: "Kunden", icon: Users },
+      { href: "/employees", label: "Team", icon: UserRound },
+    ]
+    : currentRole === "employee"
+      ? [{ href: "/dashboard", label: "Meine Aufträge", icon: CalendarDays }]
+      : [];
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
 
@@ -29,7 +32,7 @@ export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNa
       router.refresh();
       onNavigate?.();
     } catch (error) {
-      setSignOutError(error instanceof Error ? error.message : "Abmeldung fehlgeschlagen.");
+      setSignOutError(t(error instanceof Error ? error.message : "Abmeldung fehlgeschlagen."));
       setIsSigningOut(false);
     }
   };
@@ -43,13 +46,13 @@ export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNa
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#176b4a] text-xs font-semibold tracking-wide text-white">CF</span>
           <span className={`${mobile ? "block" : "hidden xl:block"} min-w-0`}>
             <span className="block text-sm font-semibold tracking-tight text-slate-900">CleanFlow</span>
-            <span className="block truncate text-xs text-slate-500">{activeOrganization?.name ?? "Einsatzplanung"}</span>
+            <span className="block truncate text-xs text-slate-500">{activeOrganization?.name ?? t("Planung")}</span>
           </span>
         </Link>
       </div>
 
-      <nav aria-label="Hauptnavigation" className="flex-1 space-y-1 px-2 py-5 xl:px-3">
-        <p className={`${mobile ? "block" : "hidden xl:block"} mb-2 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-400`}>Arbeitsbereich</p>
+      <nav aria-label={t("Hauptnavigation")} className="flex-1 space-y-1 px-2 py-5 xl:px-3">
+        <p className={`${mobile ? "block" : "hidden xl:block"} mb-2 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-400`}>{t("Arbeitsbereich")}</p>
         {navItems.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href || (href !== "/dashboard" && pathname?.startsWith(href));
           return (
@@ -58,31 +61,31 @@ export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNa
               href={href}
               onClick={onNavigate}
               aria-current={isActive ? "page" : undefined}
-              title={mobile ? undefined : label}
+              title={mobile ? undefined : t(label)}
               className={[
                 "flex min-h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors",
                 isActive ? "bg-emerald-50 font-medium text-[#14563c]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
               ].join(" ")}
             >
               <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.8} />
-              <span className={mobile ? "block" : "hidden xl:block"}>{label}</span>
+              <span className={mobile ? "block" : "hidden xl:block"}>{t(label)}</span>
             </Link>
           );
         })}
         <div className="!my-4 border-t border-slate-100" />
-        <p className={`${mobile ? "block" : "hidden xl:block"} mb-2 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-400`}>Konto</p>
+        <p className={`${mobile ? "block" : "hidden xl:block"} mb-2 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-400`}>{t("Konto")}</p>
         <Link
           href="/settings"
           onClick={onNavigate}
           aria-current={pathname === "/settings" ? "page" : undefined}
-          title={mobile ? undefined : "Einstellungen"}
+          title={mobile ? undefined : t("Einstellungen")}
           className={[
             "flex min-h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors",
             pathname === "/settings" ? "bg-emerald-50 font-medium text-[#14563c]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
           ].join(" ")}
         >
           <Settings className="h-[18px] w-[18px] shrink-0" strokeWidth={1.8} />
-          <span className={mobile ? "block" : "hidden xl:block"}>Einstellungen</span>
+          <span className={mobile ? "block" : "hidden xl:block"}>{t("Einstellungen")}</span>
         </Link>
       </nav>
 
@@ -93,19 +96,19 @@ export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNa
             {currentUser?.firstName?.[0] ?? "U"}{currentUser?.lastName?.[0] ?? ""}
           </span>
           <span className={`${mobile ? "block" : "hidden xl:block"} min-w-0 flex-1`}>
-            <span className="block truncate text-sm font-medium text-slate-800">{currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : "Konto"}</span>
-            <span className="block truncate text-xs text-slate-500">{currentUser?.email ?? "Nicht angemeldet"}</span>
+            <span className="block truncate text-sm font-medium text-slate-800">{currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : t("Konto")}</span>
+            <span className="block truncate text-xs text-slate-500">            {currentUser?.email ?? t("Nicht angemeldet")}</span>
           </span>
         </div>
         <button
           type="button"
           disabled={isSigningOut}
           onClick={() => void handleSignOut()}
-          title={mobile ? undefined : "Abmelden"}
+          title={mobile ? undefined : t("Abmelden")}
           className="flex min-h-10 w-full items-center gap-3 rounded-md px-3 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60"
         >
           <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.8} />
-          <span className={mobile ? "block" : "hidden xl:block"}>{isSigningOut ? "Abmeldung läuft…" : "Abmelden"}</span>
+          <span className={mobile ? "block" : "hidden xl:block"}>{t(isSigningOut ? "Abmeldung läuft…" : "Abmelden")}</span>
         </button>
       </div>
     </aside>

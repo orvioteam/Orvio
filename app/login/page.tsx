@@ -50,7 +50,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace("/dashboard");
+      const requestedPath = new URLSearchParams(window.location.search).get("next");
+      router.replace(requestedPath && /^\/join\/[A-Za-z0-9_-]+$/.test(requestedPath) ? requestedPath : "/dashboard");
       router.refresh();
     } catch {
       form.setError("root", {

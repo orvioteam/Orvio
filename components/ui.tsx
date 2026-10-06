@@ -1,7 +1,10 @@
+"use client";
+
 import clsx from "clsx";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes } from "react";
+import { useApp } from "@/components/providers";
 
 export function Button({ className, variant = "primary", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "ghost" | "danger" }) {
   return (
@@ -85,6 +88,7 @@ export function Badge({ children, status }: { children: React.ReactNode; status?
 }
 
 export function ConfirmDelete({ label, disabled, onConfirm }: { label: string; disabled?: boolean; onConfirm: () => void }) {
+  const { t } = useApp();
   const [isConfirming, setIsConfirming] = useState(false);
 
   return (
@@ -94,16 +98,16 @@ export function ConfirmDelete({ label, disabled, onConfirm }: { label: string; d
         disabled={disabled}
         onClick={() => setIsConfirming(true)}
         className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-600 transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
-        aria-label={`${label} löschen`}
+        aria-label={`${t("Löschen")} ${label}`}
       >
         <Trash2 className="h-4 w-4" />
-        <span className="sr-only sm:not-sr-only">Löschen</span>
+        <span className="sr-only sm:not-sr-only">{t("Löschen")}</span>
       </button>
       {isConfirming ? (
-        <span role="group" aria-label={`${label} löschen bestätigen`} className="inline-flex items-center gap-1">
-          <span className="hidden text-xs text-slate-600 sm:inline">Löschen?</span>
-          <button type="button" onClick={() => setIsConfirming(false)} className="min-h-9 rounded-md border border-slate-200 px-2 text-xs font-medium text-slate-600 hover:bg-slate-100">Nein</button>
-          <button type="button" disabled={disabled} onClick={() => { setIsConfirming(false); onConfirm(); }} className="min-h-9 rounded-md bg-rose-700 px-2 text-xs font-medium text-white hover:bg-rose-800 disabled:opacity-50">Ja</button>
+        <span role="group" aria-label={`${t("Löschen bestätigen")} ${label}`} className="inline-flex items-center gap-1">
+          <span className="hidden text-xs text-slate-600 sm:inline">{t("Löschen?")}</span>
+          <button type="button" onClick={() => setIsConfirming(false)} className="min-h-9 rounded-md border border-slate-200 px-2 text-xs font-medium text-slate-600 hover:bg-slate-100">{t("Nein")}</button>
+          <button type="button" disabled={disabled} onClick={() => { setIsConfirming(false); onConfirm(); }} className="min-h-9 rounded-md bg-rose-700 px-2 text-xs font-medium text-white hover:bg-rose-800 disabled:opacity-50">{t("Ja")}</button>
         </span>
       ) : null}
     </span>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
 import {
   addDays,
   addMonths,
@@ -17,7 +18,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import { de } from "date-fns/locale";
+import { de, enUS, fr, it } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Badge, Button, EmptyState, PageHeader } from "@/components/ui";
 import { useApp } from "@/components/providers";
@@ -37,7 +38,10 @@ const getJobHour = (job: Job) => `${job.startTime.slice(0, 2)}:00`;
 export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { state } = useApp();
+  const { state, activeOrganization, currentRole, language, t, updateMyJobStatus } = useApp();
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [updatingJobId, setUpdatingJobId] = useState<string | null>(null);
+  const locale = { de, en: enUS, fr, it }[language];
   const today = startOfDay(new Date());
   const todayKey = format(today, "yyyy-MM-dd");
   const requestedDate = searchParams.get("date");
@@ -51,16 +55,22 @@ export default function DashboardPage() {
   const dayJobs = state.jobs
     .filter((job) => job.date === dateKey)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
-  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
+  const hourStart = Number(activeOrganization?.workdayStart.slice(0, 2) ?? "06");
+  const hourEnd = Number(activeOrganization?.workdayEnd.slice(0, 2) ?? "24");
+  const baseHours = Array.from({ length: Math.max(0, hourEnd - hourStart + 1) }, (_, index) =>
+    `${String(hourStart + index).padStart(2, "0")}:00`,
+  );
+  const weekStartsOn = ((activeOrganization?.weekStartsOn ?? 1) % 7) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  const weekStart = startOfWeek(selectedDate, { weekStartsOn });
+  const weekEnd = endOfWeek(selectedDate, { weekStartsOn });
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
   const weekJobs = state.jobs.filter((job) => job.date >= format(weekStart, "yyyy-MM-dd") && job.date <= format(weekEnd, "yyyy-MM-dd"));
   const weekHours = Array.from(new Set([
-    ...Array.from({ length: 19 }, (_, index) => `${String(index + 6).padStart(2, "0")}:00`),
+    ...baseHours,
     ...weekJobs.map(getJobHour),
   ])).sort((a, b) => Number(a.slice(0, 2)) - Number(b.slice(0, 2)));
   const monthStart = startOfMonth(selectedDate);
-  const monthGridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const monthGridStart = startOfWeek(monthStart, { weekStartsOn });
   const monthDays = eachDayOfInterval({
     start: monthGridStart,
     end: addDays(monthGridStart, 41),
@@ -87,14 +97,14 @@ export default function DashboardPage() {
   };
 
   const periodLabel = view === "week"
-    ? format(weekStart, "M", { locale: de }) === format(weekEnd, "M", { locale: de })
-      ? `${format(weekStart, "d.")} – ${format(weekEnd, "d. MMMM yyyy", { locale: de })}`
-      : format(weekStart, "yyyy", { locale: de }) === format(weekEnd, "yyyy", { locale: de })
-        ? `${format(weekStart, "d. MMMM", { locale: de })} – ${format(weekEnd, "d. MMMM yyyy", { locale: de })}`
-        : `${format(weekStart, "d. MMMM yyyy", { locale: de })} – ${format(weekEnd, "d. MMMM yyyy", { locale: de })}`
+    ? format(weekStart, "M", { locale }) === format(weekEnd, "M", { locale })
+    ? `${format(weekStart, "d.")} – ${format(weekEnd, "d. MMMM yyyy", { locale })}`
+    : format(weekStart, "yyyy", { locale }) === format(weekEnd, "yyyy", { locale })
+      ? `${format(weekStart, "d. MMMM", { locale })} – ${format(weekEnd, "d. MMMM yyyy", { locale })}`
+      : `${format(weekStart, "d. MMMM yyyy", { locale })} – ${format(weekEnd, "d. MMMM yyyy", { locale })}`
     : view === "month"
-      ? format(selectedDate, "LLLL yyyy", { locale: de })
-      : format(selectedDate, "EEEE, d. MMMM yyyy", { locale: de });
+    ? format(selectedDate, "LLLL yyyy", { locale })
+    : format(selectedDate, "EEEE, d. MMMM yyyy", { locale });
 
   const navigationLabel = view === "week" ? "Woche" : view === "month" ? "Monat" : "Tag";
 
@@ -107,29 +117,87 @@ export default function DashboardPage() {
     };
   };
 
+  if (currentRole === "employee") {
+    return (
+      <div className="mx-auto min-w-0 max-w-3xl">
+        <PageHeader
+          title={t("Meine Aufträge")}
+          description={format(selectedDate, "EEEE, d. MMMM yyyy", { locale })}
+        />
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <button type="button" aria-label={t("Vorheriger Tag")} onClick={() => setPlannerLocation(addDays(selectedDate, -1), "day")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700">←</button>
+          <p className="truncate text-center text-sm font-medium">{isToday(selectedDate) ? t("Heute") : format(selectedDate, "d. MMMM yyyy", { locale })}</p>
+          <button type="button" aria-label={t("Nächster Tag")} onClick={() => setPlannerLocation(addDays(selectedDate, 1), "day")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700">→</button>
+        </div>
+        {statusError ? <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{statusError}</p> : null}
+        {dayJobs.length === 0 ? (
+          <EmptyState title={t("Keine Aufträge geplant.")} description={t("Es gibt keine Aufträge für Sie.")} />
+        ) : (
+          <div className="divide-y divide-slate-200 border-y border-slate-200 bg-white">
+            {dayJobs.map((job) => {
+              const details = getJobDetails(job);
+              const customer = state.customers.find((entry) => entry.id === job.customerId);
+              const nextStatus = job.status === "scheduled" ? "in_progress" : job.status === "in_progress" ? "completed" : null;
+              return (
+                <article key={job.id} className="space-y-3 px-4 py-4 sm:px-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <time className="text-lg font-semibold tabular-nums text-slate-900">{job.startTime.slice(0, 5)}</time>
+                    <Badge status={job.status}>{t(statusLabel[job.status])}</Badge>
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-slate-900">{details.customer}</h2>
+                    <p className="mt-1 text-sm text-slate-600">{job.title}</p>
+                    <p className="mt-1 text-sm text-slate-600">{job.address || customer?.address || "—"}</p>
+                    {job.notes ? <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{job.notes}</p> : null}
+                  </div>
+                  {nextStatus ? (
+                    <button
+                      type="button"
+                      disabled={updatingJobId === job.id}
+                      onClick={() => {
+                        setStatusError(null);
+                        setUpdatingJobId(job.id);
+                        void updateMyJobStatus(job.id, nextStatus)
+                          .catch((error: unknown) => setStatusError(error instanceof Error ? error.message : t("Auftragsstatus konnte nicht geändert werden.")))
+                          .finally(() => setUpdatingJobId(null));
+                      }}
+                      className="min-h-12 w-full rounded-lg bg-[#176b4a] px-4 text-base font-semibold text-white hover:bg-[#11563b] disabled:opacity-60"
+                    >
+                      {updatingJobId === job.id ? t("Wird gespeichert…") : t(nextStatus === "in_progress" ? "In Arbeit" : "Erledigt")}
+                    </button>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="min-w-0">
       <PageHeader
         title={view === "day"
-          ? (isToday(selectedDate) ? "Heute" : format(selectedDate, "EEEE, d. MMMM yyyy", { locale: de }))
-          : navigationLabel}
-        description={view === "day" && isToday(selectedDate) ? format(selectedDate, "d. MMMM yyyy", { locale: de }) : undefined}
-        action={<Button type="button" onClick={() => router.push(`/jobs?new=1&date=${dateKey}`)}><Plus className="mr-2 h-4 w-4" /> Auftrag</Button>}
+          ? (isToday(selectedDate) ? t("Heute") : format(selectedDate, "EEEE, d. MMMM yyyy", { locale }))
+          : t(navigationLabel)}
+        description={view === "day" && isToday(selectedDate) ? format(selectedDate, "d. MMMM yyyy", { locale }) : undefined}
+        action={<Button type="button" onClick={() => router.push(`/jobs?new=1&date=${dateKey}`)}><Plus className="mr-2 h-4 w-4" /> {t("Auftrag")}</Button>}
       />
 
-      <section aria-label="Planungsansicht" className="mb-6 space-y-3">
+      <section aria-label={t("Planungsansicht")} className="mb-6 space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
-            <button type="button" aria-label={`Vorherige ${navigationLabel}`} onClick={() => changePeriod(-1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
+            <button type="button" aria-label={`${t("Vorherige")} ${t(navigationLabel)}`} onClick={() => changePeriod(-1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
               <ChevronLeft className="h-4 w-4" />
             </button>
             <p className="min-w-0 flex-1 truncate text-center text-xs font-medium text-slate-800 sm:flex-none sm:px-2 sm:text-sm">{periodLabel}</p>
-            <button type="button" aria-label={`Nächste ${navigationLabel}`} onClick={() => changePeriod(1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
+            <button type="button" aria-label={`${t("Nächste")} ${t(navigationLabel)}`} onClick={() => changePeriod(1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
               <ChevronRight className="h-4 w-4" />
             </button>
             <span className="sr-only" aria-live="polite">{periodLabel}</span>
           </div>
-          <div role="group" aria-label="Ansicht auswählen" className="grid grid-cols-3 rounded-lg border border-slate-200 bg-white p-1 sm:inline-flex">
+          <div role="group" aria-label={t("Ansicht auswählen")} className="grid grid-cols-3 rounded-lg border border-slate-200 bg-white p-1 sm:inline-flex">
             {([
               ["day", "Tag"],
               ["week", "Woche"],
@@ -142,7 +210,7 @@ export default function DashboardPage() {
                 onClick={() => setPlannerLocation(selectedDate, value)}
                 className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors ${view === value ? "bg-[#176b4a] text-white" : "text-slate-600 hover:bg-slate-50"}`}
               >
-                {label}
+                {t(label)}
               </button>
             ))}
           </div>
@@ -151,7 +219,7 @@ export default function DashboardPage() {
 
       {view === "day" ? (
         dayJobs.length === 0 ? (
-          <EmptyState title="Keine Aufträge geplant." description="Für diesen Tag sind keine Einsätze geplant." />
+          <EmptyState title={t("Keine Aufträge geplant.")} description={t("Für diesen Tag sind keine Einsätze geplant.")} />
         ) : (
           <div className="divide-y divide-slate-200 border-y border-slate-200">
             {dayJobs.map((job) => {
@@ -164,7 +232,7 @@ export default function DashboardPage() {
                     <p className="mt-1 truncate text-sm text-slate-600">{job.title}</p>
                     <p className="mt-1 truncate text-xs text-slate-500">{details.employee}{job.address ? ` · ${job.address}` : ""}</p>
                   </div>
-                  <Badge status={job.status}>{statusLabel[job.status]}</Badge>
+                  <Badge status={job.status}>{t(statusLabel[job.status])}</Badge>
                 </Link>
               );
             })}
@@ -177,10 +245,10 @@ export default function DashboardPage() {
           <table className="w-full min-w-[760px] table-fixed border-collapse text-left">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="w-16 px-2 py-2 text-xs font-medium text-slate-500">Zeit</th>
+                  <th className="w-16 px-2 py-2 text-xs font-medium text-slate-500">{t("Zeit")}</th>
                   {weekDays.map((day) => (
                     <th key={day.toISOString()} className="px-1 py-2 text-center text-xs font-medium text-slate-600">
-                      <span className="block uppercase">{format(day, "EEE", { locale: de })}</span>
+                      <span className="block uppercase">{format(day, "EEE", { locale })}</span>
                       <span className={`mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full ${isToday(day) ? "bg-[#176b4a] text-white" : ""}`}>{format(day, "d")}</span>
                     </th>
                   ))}
@@ -222,7 +290,7 @@ export default function DashboardPage() {
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
           <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
             {eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) }).map((day) => (
-              <div key={day.toISOString()} className="py-2 text-center text-[10px] font-medium uppercase text-slate-500 sm:py-3 sm:text-xs">{format(day, "EEE", { locale: de })}</div>
+              <div key={day.toISOString()} className="py-2 text-center text-[10px] font-medium uppercase text-slate-500 sm:py-3 sm:text-xs">{format(day, "EEE", { locale })}</div>
             ))}
           </div>
           <div className="grid grid-cols-7 grid-rows-6">
@@ -234,12 +302,12 @@ export default function DashboardPage() {
                   key={dayKey}
                   type="button"
                   onClick={() => setPlannerLocation(day, "day")}
-                  aria-label={`${format(day, "d. MMMM yyyy", { locale: de })}${count ? `, ${count} ${count === 1 ? "Auftrag" : "Aufträge"}` : ""}`}
+                  aria-label={`${format(day, "d. MMMM yyyy", { locale })}${count ? `, ${count} ${t(count === 1 ? "Auftrag" : "Aufträge")}` : ""}`}
                   className={`flex h-[4.25rem] min-w-0 flex-col overflow-hidden border-b border-r border-slate-100 p-1 text-left transition-colors hover:bg-slate-50 sm:h-[5.5rem] sm:p-2 ${!isSameMonth(day, selectedDate) ? "bg-slate-50/70 text-slate-400" : "text-slate-800"}`}
                 >
                   <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${isToday(day) ? "bg-[#176b4a] font-semibold text-white" : ""}`}>{format(day, "d")}</span>
                   {count > 0 ? (
-                    <span className="mt-1 block truncate text-[9px] font-medium text-[#14563c] sm:text-xs">• {count} {count === 1 ? "Auftrag" : "Aufträge"}</span>
+                    <span className="mt-1 block truncate text-[9px] font-medium text-[#14563c] sm:text-xs">• {count} {t(count === 1 ? "Auftrag" : "Aufträge")}</span>
                   ) : null}
                 </button>
               );

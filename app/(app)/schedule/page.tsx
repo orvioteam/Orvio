@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { addDays, format, isValid, parseISO, startOfDay } from "date-fns";
-import { de } from "date-fns/locale";
+import { de, enUS, fr, it } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Badge, Button, Card, EmptyState, PageHeader } from "@/components/ui";
 import { useApp } from "@/components/providers";
@@ -19,7 +19,8 @@ const statusLabel = {
 export default function SchedulePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { state } = useApp();
+  const { state, language, t } = useApp();
+  const locale = { de, en: enUS, fr, it }[language];
   const requestedDate = searchParams.get("date");
   const parsedRequestedDate = requestedDate ? parseISO(requestedDate) : null;
   const selectedDate = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) && parsedRequestedDate && isValid(parsedRequestedDate)
@@ -38,20 +39,20 @@ export default function SchedulePage() {
 
   return (
     <div className="min-w-0">
-      <PageHeader title="Tagesplan" description="Alle Einsätze des gewählten Tages nach Uhrzeit." action={<Button type="button" onClick={() => router.push(`/jobs?new=1&date=${dateKey}`)}><Plus className="mr-2 h-4 w-4" /> Auftrag planen</Button>} />
+      <PageHeader title={t("Tagesplan")} description={t("Alle Einsätze des gewählten Tages nach Uhrzeit.")} action={<Button type="button" onClick={() => router.push(`/jobs?new=1&date=${dateKey}`)}><Plus className="mr-2 h-4 w-4" /> {t("Auftrag planen")}</Button>} />
 
       <Card className="mb-5 p-3 sm:p-4">
         <div className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-2 sm:grid-cols-[2.75rem_minmax(0,1fr)_minmax(10rem,14rem)_2.75rem]">
-          <button type="button" aria-label="Vorheriger Tag" onClick={() => changeDate(addDays(selectedDate, -1))} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100"><ChevronLeft className="h-5 w-5" /></button>
-          <div className="min-w-0 text-center sm:text-left"><p className="text-xs text-slate-500">Tagesplan</p><h2 className="truncate text-base font-semibold text-slate-900 sm:text-xl">{format(selectedDate, "EEEE, d. MMMM yyyy", { locale: de })}</h2></div>
-          <label className="col-span-3 row-start-2 sm:col-span-1 sm:col-start-3 sm:row-start-1"><span className="sr-only">Datum auswählen</span><input type="date" value={dateKey} onChange={(event) => { if (event.target.value) changeDate(parseISO(event.target.value)); }} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" /></label>
-          <button type="button" aria-label="Nächster Tag" onClick={() => changeDate(addDays(selectedDate, 1))} className="col-start-3 row-start-1 flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 sm:col-start-4"><ChevronRight className="h-5 w-5" /></button>
+          <button type="button" aria-label={t("Vorheriger Tag")} onClick={() => changeDate(addDays(selectedDate, -1))} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100"><ChevronLeft className="h-5 w-5" /></button>
+          <div className="min-w-0 text-center sm:text-left"><p className="text-xs text-slate-500">{t("Tagesplan")}</p><h2 className="truncate text-base font-semibold text-slate-900 sm:text-xl">{format(selectedDate, "EEEE, d. MMMM yyyy", { locale })}</h2></div>
+          <label className="col-span-3 row-start-2 sm:col-span-1 sm:col-start-3 sm:row-start-1"><span className="sr-only">{t("Datum auswählen")}</span><input type="date" value={dateKey} onChange={(event) => { if (event.target.value) changeDate(parseISO(event.target.value)); }} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" /></label>
+          <button type="button" aria-label={t("Nächster Tag")} onClick={() => changeDate(addDays(selectedDate, 1))} className="col-start-3 row-start-1 flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 sm:col-start-4"><ChevronRight className="h-5 w-5" /></button>
         </div>
-        <button type="button" onClick={() => changeDate(new Date())} className="mt-3 min-h-11 w-full rounded-xl text-sm font-medium text-emerald-700 hover:bg-emerald-50 sm:w-auto sm:px-3">Heute anzeigen</button>
+        <button type="button" onClick={() => changeDate(new Date())} className="mt-3 min-h-11 w-full rounded-xl text-sm font-medium text-emerald-700 hover:bg-emerald-50 sm:w-auto sm:px-3">{t("Heute anzeigen")}</button>
       </Card>
 
       {dayJobs.length === 0 ? (
-        <EmptyState title="Keine Einsätze an diesem Tag" description={`Für den ${format(selectedDate, "d. MMMM yyyy", { locale: de })} sind keine Aufträge geplant.`} action={<Link href={`/jobs?new=1&date=${dateKey}`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">Auftrag für diesen Tag hinzufügen</Link>} />
+        <EmptyState title={t("Keine Einsätze an diesem Tag")} description={`${t("Für den")} ${format(selectedDate, "d. MMMM yyyy", { locale })} ${t("sind keine Aufträge geplant.")}`} action={<Link href={`/jobs?new=1&date=${dateKey}`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">{t("Auftrag für diesen Tag hinzufügen")}</Link>} />
       ) : (
         <div className="space-y-3">
           {dayJobs.map((job) => {
@@ -64,14 +65,14 @@ export default function SchedulePage() {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-emerald-800">{job.startTime}{job.endTime ? ` – ${job.endTime}` : ""}</p>
                     <h3 className="mt-1 break-words text-lg font-semibold text-slate-900">{job.title}</h3>
-                    <p className="break-words text-sm text-slate-600">{customer?.name ?? "Kunde nicht verfügbar"}{customer?.companyName ? ` · ${customer.companyName}` : ""}</p>
-                    <p className="break-words text-sm text-slate-500">{employee ? `${employee.firstName} ${employee.lastName}` : "Nicht zugewiesen"}{job.address || customer?.address ? ` · ${job.address || customer?.address}` : ""}</p>
+                    <p className="break-words text-sm text-slate-600">{customer?.name ?? t("Kunde nicht verfügbar")}{customer?.companyName ? ` · ${customer.companyName}` : ""}</p>
+                    <p className="break-words text-sm text-slate-500">{employee ? `${employee.firstName} ${employee.lastName}` : t("Nicht zugewiesen")}{job.address || customer?.address ? ` · ${job.address || customer?.address}` : ""}</p>
                     {job.notes ? <p className="mt-2 break-words text-sm text-slate-500">{job.notes}</p> : null}
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end">
-                  <Badge status={job.status}>{statusLabel[job.status]}</Badge>
-                  <Link href={`/jobs?search=${encodeURIComponent(job.title)}`} className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Auftrag öffnen</Link>
+                  <Badge status={job.status}>{t(statusLabel[job.status])}</Badge>
+                  <Link href={`/jobs?search=${encodeURIComponent(job.title)}`} className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">{t("Auftrag öffnen")}</Link>
                 </div>
               </div>
             </Card>;
