@@ -7,7 +7,6 @@ import {
   addMonths,
   addWeeks,
   eachDayOfInterval,
-  endOfMonth,
   endOfWeek,
   format,
   isSameMonth,
@@ -61,10 +60,10 @@ export default function DashboardPage() {
     ...weekJobs.map(getJobHour),
   ])).sort((a, b) => Number(a.slice(0, 2)) - Number(b.slice(0, 2)));
   const monthStart = startOfMonth(selectedDate);
-  const monthEnd = endOfMonth(selectedDate);
+  const monthGridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const monthDays = eachDayOfInterval({
-    start: startOfWeek(monthStart, { weekStartsOn: 1 }),
-    end: endOfWeek(monthEnd, { weekStartsOn: 1 }),
+    start: monthGridStart,
+    end: addDays(monthGridStart, 41),
   });
   const monthJobsByDate = new Map<string, number>();
   state.jobs.forEach((job) => monthJobsByDate.set(job.date, (monthJobsByDate.get(job.date) ?? 0) + 1));
@@ -178,9 +177,9 @@ export default function DashboardPage() {
           <table className="w-full min-w-[760px] table-fixed border-collapse text-left">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="w-16 px-3 py-3 text-xs font-medium text-slate-500">Zeit</th>
+                  <th className="w-16 px-2 py-2 text-xs font-medium text-slate-500">Zeit</th>
                   {weekDays.map((day) => (
-                    <th key={day.toISOString()} className="px-2 py-3 text-center text-xs font-medium text-slate-600">
+                    <th key={day.toISOString()} className="px-1 py-2 text-center text-xs font-medium text-slate-600">
                       <span className="block uppercase">{format(day, "EEE", { locale: de })}</span>
                       <span className={`mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full ${isToday(day) ? "bg-[#176b4a] text-white" : ""}`}>{format(day, "d")}</span>
                     </th>
@@ -189,23 +188,22 @@ export default function DashboardPage() {
               </thead>
               <tbody>
                 {weekHours.map((hour) => (
-                  <tr key={hour} className="border-b border-slate-100 last:border-b-0">
-                    <th scope="row" className="align-top px-3 py-3 text-xs font-medium tabular-nums text-slate-500">{hour}</th>
+                  <tr key={hour} className="h-9 border-b border-slate-100 last:border-b-0">
+                    <th scope="row" className="h-9 align-top px-2 py-1 text-[10px] font-medium tabular-nums text-slate-500">{hour}</th>
                     {weekDays.map((day) => {
                       const dayKey = format(day, "yyyy-MM-dd");
                       const cellJobs = weekJobs
                         .filter((job) => job.date === dayKey && getJobHour(job) === hour)
                         .sort((a, b) => a.startTime.localeCompare(b.startTime));
                       return (
-                        <td key={dayKey} className="align-top border-l border-slate-100 p-1.5">
-                          <div className="space-y-1">
+                        <td key={dayKey} className="h-9 align-top border-l border-slate-100 p-0.5">
+                          <div className="space-y-0.5">
                             {cellJobs.map((job) => {
                               const details = getJobDetails(job);
                               return (
-                                <Link key={job.id} href={`/jobs?edit=${encodeURIComponent(job.id)}`} className="block rounded-md bg-emerald-50 px-2 py-1.5 text-[11px] leading-4 text-emerald-950 hover:bg-emerald-100">
+                                <Link key={job.id} href={`/jobs?edit=${encodeURIComponent(job.id)}`} title={`${details.customer} · ${job.title} · ${details.employee}`} className="block rounded-sm bg-emerald-50 px-1 py-0.5 text-[10px] leading-3 text-emerald-950 hover:bg-emerald-100">
                                   <span className="block truncate font-semibold">{details.customer}</span>
-                                  <span className="block truncate">{job.title}</span>
-                                  <span className="block truncate text-emerald-800">{details.employee}</span>
+                                  <span className="block truncate text-[9px] text-emerald-800">{job.title} · {details.employee}</span>
                                 </Link>
                               );
                             })}
@@ -227,7 +225,7 @@ export default function DashboardPage() {
               <div key={day.toISOString()} className="py-2 text-center text-[10px] font-medium uppercase text-slate-500 sm:py-3 sm:text-xs">{format(day, "EEE", { locale: de })}</div>
             ))}
           </div>
-          <div className="grid grid-cols-7">
+          <div className="grid grid-cols-7 grid-rows-6">
             {monthDays.map((day) => {
               const dayKey = format(day, "yyyy-MM-dd");
               const count = monthJobsByDate.get(dayKey) ?? 0;
@@ -237,7 +235,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => setPlannerLocation(day, "day")}
                   aria-label={`${format(day, "d. MMMM yyyy", { locale: de })}${count ? `, ${count} ${count === 1 ? "Auftrag" : "Aufträge"}` : ""}`}
-                  className={`min-h-[4.5rem] border-b border-r border-slate-100 p-1.5 text-left transition-colors hover:bg-slate-50 sm:min-h-24 sm:p-3 ${!isSameMonth(day, selectedDate) ? "bg-slate-50/70 text-slate-400" : "text-slate-800"}`}
+                  className={`flex h-[4.25rem] min-w-0 flex-col overflow-hidden border-b border-r border-slate-100 p-1 text-left transition-colors hover:bg-slate-50 sm:h-[5.5rem] sm:p-2 ${!isSameMonth(day, selectedDate) ? "bg-slate-50/70 text-slate-400" : "text-slate-800"}`}
                 >
                   <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${isToday(day) ? "bg-[#176b4a] font-semibold text-white" : ""}`}>{format(day, "d")}</span>
                   {count > 0 ? (
