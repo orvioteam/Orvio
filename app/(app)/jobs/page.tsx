@@ -25,8 +25,8 @@ const defaultJob = (): JobFormInput => ({
 
 const statusLabel: Record<JobStatus, string> = {
   scheduled: "Geplant",
-  in_progress: "In Bearbeitung",
-  completed: "Abgeschlossen",
+  in_progress: "In Arbeit",
+  completed: "Erledigt",
   cancelled: "Storniert",
 };
 
@@ -192,7 +192,7 @@ function JobsPageContent() {
           ["in_progress", "In Arbeit"],
           ["completed", "Erledigt"],
         ] as const).map(([value, label]) => (
-          <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={`min-h-10 rounded-md border px-3.5 text-sm font-medium transition-colors ${statusFilter === value ? "border-[#176b4a] bg-[#176b4a] text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>{t(label)}</button>
+          <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={`min-h-11 rounded-lg border px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 ${statusFilter === value ? "border-[#176b4a] bg-[#176b4a] text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>{t(label)}</button>
         ))}
       </div>
 
@@ -229,10 +229,10 @@ function JobsPageContent() {
               <Input label={t("Einsatzort / Adresse")} value={draft.address} onChange={(event) => setDraft((value) => ({ ...value, address: event.target.value }))} />
               <label className="space-y-2 text-sm font-medium text-slate-700 md:col-span-2">
                 <span>{t("Notizen")}</span>
-                <textarea value={draft.notes} onChange={(event) => setDraft((value) => ({ ...value, notes: event.target.value }))} rows={3} className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />
+                <textarea value={draft.notes} onChange={(event) => setDraft((value) => ({ ...value, notes: event.target.value }))} rows={3} className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus-visible:border-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-100" />
               </label>
               {editingId ? <Select label={t("Status")} value={draft.status} onChange={(event) => setDraft((value) => ({ ...value, status: event.target.value as JobStatus }))}>
-                <option value="scheduled">{t("Geplant")}</option><option value="in_progress">{t("In Bearbeitung")}</option><option value="completed">{t("Abgeschlossen")}</option><option value="cancelled">{t("Storniert")}</option>
+                <option value="scheduled">{t("Geplant")}</option><option value="in_progress">{t("In Arbeit")}</option><option value="completed">{t("Erledigt")}</option><option value="cancelled">{t("Storniert")}</option>
               </Select> : null}
               {formError ? <p role="alert" className="md:col-span-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{formError}</p> : null}
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end md:col-span-2">
@@ -261,7 +261,10 @@ function JobsPageContent() {
               return (
                 <Card key={job.id} className="space-y-3 p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0"><p className="break-words font-semibold">{customer?.companyName || customer?.name || t("Kunde nicht verfügbar")}</p></div>
+                    <div className="min-w-0">
+                      <p className="break-words font-semibold">{customer?.companyName || customer?.name || t("Kunde nicht verfügbar")}</p>
+                      <p className="mt-1 break-words text-sm text-slate-600">{job.title}</p>
+                    </div>
                     <Badge status={job.status}>{t(statusLabel[job.status])}</Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm text-slate-600">
@@ -269,8 +272,8 @@ function JobsPageContent() {
                     <p className="col-span-2">{employee ? `${employee.firstName} ${employee.lastName}` : t("Nicht zugewiesen")}</p>
                     {job.address ? <p className="col-span-2 break-words">{job.address}</p> : null}
                   </div>
-                  <Select label={t("Status ändern")} value={job.status} disabled={busyJobId === job.id} onChange={(event) => void changeStatus(job.id, event.target.value as JobStatus)}>
-                    <option value="scheduled">{t("Geplant")}</option><option value="in_progress">{t("In Bearbeitung")}</option><option value="completed">{t("Abgeschlossen")}</option><option value="cancelled">{t("Storniert")}</option>
+                  <Select label={t(busyJobId === job.id ? "Wird gespeichert…" : "Status ändern")} value={job.status} disabled={busyJobId === job.id} onChange={(event) => void changeStatus(job.id, event.target.value as JobStatus)}>
+                    <option value="scheduled">{t("Geplant")}</option><option value="in_progress">{t("In Arbeit")}</option><option value="completed">{t("Erledigt")}</option><option value="cancelled">{t("Storniert")}</option>
                   </Select>
                   <div className="flex gap-2 border-t border-slate-100 pt-3">
                     <Button type="button" variant="secondary" className="min-h-11 flex-1" onClick={() => startEdit(job.id)}><PencilLine className="mr-2 h-4 w-4" /> {t("Bearbeiten")}</Button>
@@ -282,16 +285,16 @@ function JobsPageContent() {
           </div>
           <Card className="hidden overflow-hidden p-0 lg:block">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px] text-left text-sm">
-                <thead className="bg-[#f8f9f7] text-xs uppercase tracking-wide text-slate-500"><tr>{["Datum", "Zeit", "Kunde", "Mitarbeiter", "Status", "Aktionen"].map((heading) => <th key={heading} className="px-4 py-3 font-medium">{t(heading)}</th>)}</tr></thead>
+              <table className="w-full min-w-[900px] text-left text-sm">
+                <thead className="bg-[#f8f9f7] text-xs uppercase tracking-wide text-slate-500"><tr>{["Datum", "Zeit", "Kunde", "Auftrag", "Mitarbeiter", "Status", "Aktionen"].map((heading) => <th key={heading} className="px-4 py-3 font-medium">{t(heading)}</th>)}</tr></thead>
                 <tbody>{filteredJobs.map((job) => {
                   const customer = state.customers.find((entry) => entry.id === job.customerId);
                   const employee = state.employees.find((entry) => entry.id === job.employeeId);
                   return <tr key={job.id} className="border-t border-slate-100 align-middle hover:bg-slate-50/70">
                     <td className="px-4 py-4">{format(new Date(`${job.date}T00:00:00`), "P", { locale })}</td><td className="px-4 py-4">{job.startTime}{job.endTime ? ` – ${job.endTime}` : ""}</td>
-                    <td className="px-4 py-4">{customer?.companyName || customer?.name || t("Kunde nicht verfügbar")}</td>
+                    <td className="px-4 py-4">{customer?.companyName || customer?.name || t("Kunde nicht verfügbar")}</td><td className="px-4 py-4">{job.title}</td>
                     <td className="px-4 py-4">{employee ? `${employee.firstName} ${employee.lastName}` : t("Nicht zugewiesen")}</td>
-                    <td className="px-4 py-4"><Select aria-label={`${t("Status")} ${job.title}`} value={job.status} disabled={busyJobId === job.id} onChange={(event) => void changeStatus(job.id, event.target.value as JobStatus)} className="min-w-40"><option value="scheduled">{t("Geplant")}</option><option value="in_progress">{t("In Bearbeitung")}</option><option value="completed">{t("Abgeschlossen")}</option><option value="cancelled">{t("Storniert")}</option></Select></td>
+                    <td className="px-4 py-4"><Select aria-label={`${t(busyJobId === job.id ? "Wird gespeichert…" : "Status")} ${job.title}`} value={job.status} disabled={busyJobId === job.id} onChange={(event) => void changeStatus(job.id, event.target.value as JobStatus)} className="min-w-40"><option value="scheduled">{t("Geplant")}</option><option value="in_progress">{t("In Arbeit")}</option><option value="completed">{t("Erledigt")}</option><option value="cancelled">{t("Storniert")}</option></Select></td>
                     <td className="px-4 py-4"><div className="flex justify-end gap-2">
                       <button type="button" onClick={() => startEdit(job.id)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100" aria-label={`${t("Auftrag")} ${job.title} ${t("Bearbeiten")}`}><PencilLine className="h-4 w-4" /></button>
                       <ConfirmDelete label={job.title} disabled={busyJobId === job.id} onConfirm={() => void handleDelete(job.id)} />

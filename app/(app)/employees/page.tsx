@@ -135,7 +135,7 @@ export default function EmployeesPage() {
 
   return (
     <div className="min-w-0">
-      <PageHeader title={t("Team")} description={t("Kontaktdaten und Aktivstatus Ihres Teams verwalten.")} action={<Button type="button" onClick={openNewEmployee}><Plus className="mr-2 h-4 w-4" /> {t("Mitarbeiter hinzufügen")}</Button>} />
+      <PageHeader title={t("Mitarbeiter")} description={t("Kontaktdaten und Aktivstatus Ihres Teams verwalten.")} action={<Button type="button" onClick={openNewEmployee}><Plus className="mr-2 h-4 w-4" /> {t("Mitarbeiter hinzufügen")}</Button>} />
 
       <label className="relative mb-5 block max-w-xl">
         <span className="sr-only">{t("Mitarbeiter suchen")}</span>
@@ -155,7 +155,7 @@ export default function EmployeesPage() {
             <Input label={t("E-Mail")} type="email" value={draft.email} onChange={(event) => setDraft((value) => ({ ...value, email: event.target.value }))} />
             <Input label={t("Telefon")} type="tel" value={draft.phone} onChange={(event) => setDraft((value) => ({ ...value, phone: event.target.value }))} />
             <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-700"><input type="checkbox" checked={draft.active} onChange={(event) => setDraft((value) => ({ ...value, active: event.target.checked }))} className="h-5 w-5 accent-emerald-600" /> {t("Aktiv und für Einsätze auswählbar")}</label>
-            <label className="space-y-2 text-sm font-medium text-slate-700 md:col-span-2"><span>{t("Notizen")}</span><textarea value={draft.notes} onChange={(event) => setDraft((value) => ({ ...value, notes: event.target.value }))} rows={3} className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" /></label>
+            <label className="space-y-2 text-sm font-medium text-slate-700 md:col-span-2"><span>{t("Notizen")}</span><textarea value={draft.notes} onChange={(event) => setDraft((value) => ({ ...value, notes: event.target.value }))} rows={3} className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus-visible:border-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-100" /></label>
             {formError ? <p role="alert" className="md:col-span-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{formError}</p> : null}
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end md:col-span-2">
               <Button type="button" variant="secondary" onClick={() => { setFormOpen(false); setEditingId(null); setFormError(null); }}>{t("Abbrechen")}</Button>
@@ -187,8 +187,8 @@ export default function EmployeesPage() {
                 {employee.notes ? <p className="mt-1 text-xs text-slate-500">{employee.notes}</p> : null}
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                <Button type="button" variant="secondary" className="min-h-10 px-3" disabled={busyId === employee.id} onClick={() => void toggleActive(employee.id)}>
-                  {t(employee.active ? "Deaktivieren" : "Aktivieren")}
+                <Button type="button" variant="secondary" className="min-h-11 px-3" disabled={busyId === employee.id} onClick={() => void toggleActive(employee.id)}>
+                  {busyId === employee.id ? t("Wird gespeichert…") : t(employee.active ? "Deaktivieren" : "Aktivieren")}
                 </Button>
                 {!employee.userId && employee.email ? (
                   inviteLinks[employee.id] ? (
@@ -199,12 +199,12 @@ export default function EmployeesPage() {
                       <Button type="button" variant="secondary" className="w-full" onClick={() => void copyInvite(employee.id)}>{t(copiedEmployeeId === employee.id ? "Link kopiert" : "Link kopieren")}</Button>
                     </div>
                   ) : (
-                    <Button type="button" variant="secondary" className="min-h-10 px-3" disabled={inviteBusyId === employee.id} onClick={() => void createInvite(employee.id)}>
+                    <Button type="button" variant="secondary" className="min-h-11 px-3" disabled={inviteBusyId === employee.id} onClick={() => void createInvite(employee.id)}>
                       {inviteBusyId === employee.id ? t("Wird gespeichert…") : t("Einladung erstellen")}
                     </Button>
                   )
                 ) : null}
-                <button type="button" onClick={() => startEdit(employee.id)} className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100" aria-label={`${t("Mitarbeiter")} ${name} ${t("Bearbeiten")}`}><PencilLine className="h-4 w-4" /></button>
+                <button type="button" onClick={() => startEdit(employee.id)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2" aria-label={`${t("Mitarbeiter")} ${name} ${t("Bearbeiten")}`}><PencilLine className="h-4 w-4" /></button>
                 <ConfirmDelete label={name} disabled={busyId === employee.id} onConfirm={() => void handleDelete(employee.id)} />
               </div>
             </div>;

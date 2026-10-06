@@ -109,7 +109,7 @@ export default function CustomersPage() {
             </div>
             <label className="space-y-2 text-sm font-medium text-slate-700 md:col-span-2">
               <span>{t("Notizen")}</span>
-              <textarea value={draft.notes} onChange={(event) => setDraft((value) => ({ ...value, notes: event.target.value }))} rows={3} className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" />
+              <textarea value={draft.notes} onChange={(event) => setDraft((value) => ({ ...value, notes: event.target.value }))} rows={3} className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus-visible:border-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-100" />
             </label>
             {formError ? <p role="alert" className="md:col-span-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{formError}</p> : null}
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end md:col-span-2">
@@ -148,7 +148,7 @@ export default function CustomersPage() {
                 <thead className="bg-[#f8f9f7] text-xs uppercase tracking-wide text-slate-500"><tr>{["Kunde", "Telefon", "E-Mail", "Adresse", "Aktionen"].map((heading) => <th key={heading} className="px-4 py-3 font-medium">{t(heading)}</th>)}</tr></thead>
                 <tbody>{filteredCustomers.map((customer) => <tr key={customer.id} className="border-t border-slate-100 hover:bg-slate-50/70">
                   <td className="px-4 py-4 font-medium">{customer.companyName || customer.name}<span className="block text-xs text-slate-500">{customer.companyName ? customer.name : t("Privatkunde")}</span></td><td className="px-4 py-4">{customer.phone || "—"}</td><td className="px-4 py-4">{customer.email || "—"}</td><td className="px-4 py-4">{[customer.address, customer.postalCode, customer.city].filter(Boolean).join(", ") || "—"}</td>
-                  <td className="px-4 py-4"><div className="flex justify-end gap-2"><button type="button" onClick={() => startEdit(customer.id)} className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100" aria-label={`${t("Kunde")} ${customer.name} ${t("Bearbeiten")}`}><PencilLine className="h-4 w-4" /></button><ConfirmDelete label={customer.name} disabled={busyId === customer.id} onConfirm={() => void handleDelete(customer.id)} /></div></td>
+                  <td className="px-4 py-4"><div className="flex justify-end gap-2"><button type="button" onClick={() => startEdit(customer.id)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2" aria-label={`${t("Kunde")} ${customer.name} ${t("Bearbeiten")}`}><PencilLine className="h-4 w-4" /></button><ConfirmDelete label={customer.name} disabled={busyId === customer.id} onConfirm={() => void handleDelete(customer.id)} /></div></td>
                 </tr>)}</tbody>
               </table>
             </div>

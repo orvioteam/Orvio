@@ -11,8 +11,8 @@ import { useApp } from "@/components/providers";
 
 const statusLabel = {
   scheduled: "Geplant",
-  in_progress: "In Bearbeitung",
-  completed: "Abgeschlossen",
+  in_progress: "In Arbeit",
+  completed: "Erledigt",
   cancelled: "Storniert",
 } as const;
 

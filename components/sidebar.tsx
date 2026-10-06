@@ -16,7 +16,7 @@ export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNa
       { href: "/dashboard", label: "Heute", icon: CalendarDays },
       { href: "/jobs", label: "Aufträge", icon: BriefcaseBusiness },
       { href: "/customers", label: "Kunden", icon: Users },
-      { href: "/employees", label: "Team", icon: UserRound },
+      { href: "/employees", label: "Mitarbeiter", icon: UserRound },
     ]
     : currentRole === "employee"
       ? [{ href: "/dashboard", label: "Meine Aufträge", icon: CalendarDays }]
@@ -64,7 +64,7 @@ export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNa
               aria-current={isActive ? "page" : undefined}
               title={mobile ? undefined : t(label)}
               className={[
-                "flex min-h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors",
+                "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2",
                 isActive ? "bg-emerald-50 font-medium text-[#14563c]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
               ].join(" ")}
             >
@@ -81,7 +81,7 @@ export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNa
           aria-current={pathname === "/settings" ? "page" : undefined}
           title={mobile ? undefined : t("Einstellungen")}
           className={[
-            "flex min-h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors",
+            "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2",
             pathname === "/settings" ? "bg-emerald-50 font-medium text-[#14563c]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
           ].join(" ")}
         >
@@ -106,7 +106,7 @@ export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNa
           disabled={isSigningOut}
           onClick={() => void handleSignOut()}
           title={mobile ? undefined : t("Abmelden")}
-          className="flex min-h-10 w-full items-center gap-3 rounded-md px-3 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60"
+          className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.8} />
           <span className={mobile ? "block" : "hidden xl:block"}>{t(isSigningOut ? "Abmeldung läuft…" : "Abmelden")}</span>

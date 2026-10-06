@@ -27,8 +27,8 @@ import type { Job } from "@/lib/types";
 
 const statusLabel = {
   scheduled: "Geplant",
-  in_progress: "In Bearbeitung",
-  completed: "Abgeschlossen",
+  in_progress: "In Arbeit",
+  completed: "Erledigt",
   cancelled: "Storniert",
 } as const;
 
@@ -119,12 +119,12 @@ export default function DashboardPage() {
       <div className="mx-auto min-w-0 max-w-3xl">
         <PageHeader
           title={t("Meine Aufträge")}
-          description={formatLocalizedDate(language, selectedDate, { dateStyle: "full" })}
+          description={isToday(selectedDate) ? t("Heute") : formatLocalizedDate(language, selectedDate, { dateStyle: "full" })}
         />
         <div className="mb-5 flex items-center justify-between gap-3">
-          <button type="button" aria-label={t("Vorheriger Tag")} onClick={() => setPlannerLocation(addDays(selectedDate, -1), "day")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700">←</button>
+          <button type="button" aria-label={t("Vorheriger Tag")} onClick={() => setPlannerLocation(addDays(selectedDate, -1), "day")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">←</button>
           <p className="truncate text-center text-sm font-medium">{isToday(selectedDate) ? t("Heute") : format(selectedDate, "d. MMMM yyyy", { locale })}</p>
-          <button type="button" aria-label={t("Nächster Tag")} onClick={() => setPlannerLocation(addDays(selectedDate, 1), "day")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700">→</button>
+          <button type="button" aria-label={t("Nächster Tag")} onClick={() => setPlannerLocation(addDays(selectedDate, 1), "day")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">→</button>
         </div>
         {statusError ? <p role="alert" className="mb-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{statusError}</p> : null}
         {dayJobs.length === 0 ? (
@@ -158,7 +158,7 @@ export default function DashboardPage() {
                           .catch((error: unknown) => setStatusError(translateError(language, error, "Auftragsstatus konnte nicht geändert werden.")))
                           .finally(() => setUpdatingJobId(null));
                       }}
-                      className="min-h-12 w-full rounded-lg bg-[#176b4a] px-4 text-base font-semibold text-white hover:bg-[#11563b] disabled:opacity-60"
+                      className="min-h-12 w-full rounded-lg bg-[#176b4a] px-4 text-base font-semibold text-white hover:bg-[#11563b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {updatingJobId === job.id ? t("Wird gespeichert…") : t(nextStatus === "in_progress" ? "In Arbeit" : "Erledigt")}
                     </button>
@@ -185,11 +185,11 @@ export default function DashboardPage() {
       <section aria-label={t("Planungsansicht")} className="mb-6 space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center justify-between gap-2 sm:justify-start">
-            <button type="button" aria-label={`${t("Vorherige")} ${t(navigationLabel)}`} onClick={() => changePeriod(-1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
+            <button type="button" aria-label={`${t("Vorherige")} ${t(navigationLabel)}`} onClick={() => changePeriod(-1)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
               <ChevronLeft className="h-4 w-4" />
             </button>
             <p className="min-w-0 flex-1 truncate text-center text-xs font-medium text-slate-800 sm:flex-none sm:px-2 sm:text-sm">{periodLabel}</p>
-            <button type="button" aria-label={`${t("Nächste")} ${t(navigationLabel)}`} onClick={() => changePeriod(1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
+            <button type="button" aria-label={`${t("Nächste")} ${t(navigationLabel)}`} onClick={() => changePeriod(1)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
               <ChevronRight className="h-4 w-4" />
             </button>
             <span className="sr-only" aria-live="polite">{periodLabel}</span>
@@ -205,7 +205,7 @@ export default function DashboardPage() {
                 type="button"
                 aria-pressed={view === value}
                 onClick={() => setPlannerLocation(selectedDate, value)}
-                className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors ${view === value ? "bg-[#176b4a] text-white" : "text-slate-600 hover:bg-slate-50"}`}
+                className={`min-h-11 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 ${view === value ? "bg-[#176b4a] text-white" : "text-slate-600 hover:bg-slate-50"}`}
               >
                 {t(label)}
               </button>
