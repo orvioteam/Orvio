@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { PencilLine, Plus, Search } from "lucide-react";
 import { Badge, Button, Card, ConfirmDelete, EmptyState, Input, PageHeader, Select } from "@/components/ui";
 import { useApp } from "@/components/providers";
-import type { JobFormInput, JobStatus } from "@/lib/types";
+import type { Job, JobFormInput, JobStatus } from "@/lib/types";
 
 const defaultJob = (): JobFormInput => ({
   customerId: "",
@@ -29,16 +29,41 @@ const statusLabel: Record<JobStatus, string> = {
 };
 
 export default function JobsPage() {
+  const searchParams = useSearchParams();
+  const formRouteKey = [searchParams.get("new"), searchParams.get("date"), searchParams.get("edit")].join(":");
+  return <JobsPageContent key={formRouteKey} />;
+}
+
+function jobToFormInput(job: Job): JobFormInput {
+  return {
+    customerId: job.customerId,
+    employeeId: job.employeeId ?? "",
+    title: job.title,
+    description: job.description,
+    date: job.date,
+    startTime: job.startTime,
+    endTime: job.endTime,
+    address: job.address,
+    notes: job.notes,
+    status: job.status,
+  };
+}
+
+function JobsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { state, saveJob, deleteJob } = useApp();
   const [localQuery, setLocalQuery] = useState<string | null>(null);
   const query = localQuery ?? searchParams.get("search") ?? "";
   const [statusFilter, setStatusFilter] = useState<"all" | JobStatus>("all");
-  const [localFormOpen, setLocalFormOpen] = useState(false);
-  const formOpen = localFormOpen || searchParams.get("new") === "1";
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const newJobRequested = searchParams.get("new") === "1";
+  const requestedEditId = searchParams.get("edit");
+  const requestedDate = searchParams.get("date");
+  const requestedEditJob = state.jobs.find((job) => job.id === requestedEditId);
+  const formOpen = newJobRequested || Boolean(requestedEditJob);
+  const editingId = requestedEditJob?.id ?? null;
   const [draft, setDraft] = useState<JobFormInput>(() => {
+    if (requestedEditJob) return jobToFormInput(requestedEditJob);
     const date = searchParams.get("date");
     const defaults = defaultJob();
     return { ...defaults, date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : defaults.date };
@@ -64,19 +89,10 @@ export default function JobsPage() {
   }, [query, state.customers, state.employees, state.jobs, statusFilter]);
 
   const openNewJob = () => {
-    const date = searchParams.get("date");
-    const defaults = defaultJob();
-    setDraft({ ...defaults, date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : defaults.date });
-    setEditingId(null);
-    setFormError(null);
-    setLocalFormOpen(true);
+    router.push(`/jobs?new=1${requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? `&date=${requestedDate}` : ""}`);
   };
 
   const closeForm = () => {
-    setLocalFormOpen(false);
-    setEditingId(null);
-    setDraft(defaultJob());
-    setFormError(null);
     const searchQuery = searchParams.get("search");
     router.replace(searchQuery ? `/jobs?search=${encodeURIComponent(searchQuery)}` : "/jobs", { scroll: false });
   };
@@ -112,25 +128,7 @@ export default function JobsPage() {
     }
   };
 
-  const startEdit = (jobId: string) => {
-    const job = state.jobs.find((entry) => entry.id === jobId);
-    if (!job) return;
-    setDraft({
-      customerId: job.customerId,
-      employeeId: job.employeeId ?? "",
-      title: job.title,
-      description: job.description,
-      date: job.date,
-      startTime: job.startTime,
-      endTime: job.endTime,
-      address: job.address,
-      notes: job.notes,
-      status: job.status,
-    });
-    setEditingId(jobId);
-    setFormError(null);
-    setLocalFormOpen(true);
-  };
+  const startEdit = (jobId: string) => router.push(`/jobs?edit=${encodeURIComponent(jobId)}`);
 
   const changeStatus = async (jobId: string, status: JobStatus) => {
     const job = state.jobs.find((entry) => entry.id === jobId);
@@ -247,9 +245,9 @@ export default function JobsPage() {
         <EmptyState
           title={state.jobs.length === 0 ? "Noch keine Aufträge" : "Keine passenden Aufträge"}
           description={state.jobs.length === 0 ? "Erstellen Sie Ihren ersten Auftrag, um einen Einsatz zu planen." : "Passen Sie Suche oder Statusfilter an."}
-          action={state.jobs.length === 0
-            ? <Button type="button" onClick={openNewJob}><Plus className="mr-2 h-4 w-4" /> Auftrag hinzufügen</Button>
-            : <Button type="button" variant="secondary" onClick={() => { setLocalQuery(""); setStatusFilter("all"); }}>Filter zurücksetzen</Button>}
+          action={state.jobs.length > 0
+            ? <Button type="button" variant="secondary" onClick={() => { setLocalQuery(""); setStatusFilter("all"); }}>Filter zurücksetzen</Button>
+            : undefined}
         />
       ) : (
         <>

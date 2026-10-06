@@ -135,9 +135,9 @@ export default function EmployeesPage() {
       ) : null}
 
       {filteredEmployees.length === 0 ? (
-        <EmptyState title={state.employees.length === 0 ? "Noch keine Mitarbeiter" : "Keine passenden Mitarbeiter"} description={state.employees.length === 0 ? "Fügen Sie Ihr Team hinzu und weisen Sie Mitarbeitende Aufträgen zu." : "Passen Sie Ihre Suche an."} action={state.employees.length === 0
-          ? <Button type="button" onClick={openNewEmployee}><Plus className="mr-2 h-4 w-4" /> Mitarbeiter hinzufügen</Button>
-          : <Button type="button" variant="secondary" onClick={() => setQuery("")}>Suche zurücksetzen</Button>} />
+        <EmptyState title={state.employees.length === 0 ? "Noch keine Mitarbeiter" : "Keine passenden Mitarbeiter"} description={state.employees.length === 0 ? "Fügen Sie Ihr Team hinzu und weisen Sie Mitarbeitende Aufträgen zu." : "Passen Sie Ihre Suche an."} action={state.employees.length > 0
+          ? <Button type="button" variant="secondary" onClick={() => setQuery("")}>Suche zurücksetzen</Button>
+          : undefined} />
       ) : (
         <Card className="overflow-hidden p-0">
           {filteredEmployees.map((employee) => {

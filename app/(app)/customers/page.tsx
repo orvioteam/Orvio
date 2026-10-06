@@ -120,9 +120,9 @@ export default function CustomersPage() {
       ) : null}
 
       {filteredCustomers.length === 0 ? (
-        <EmptyState title={state.customers.length === 0 ? "Noch keine Kunden" : "Keine passenden Kunden"} description={state.customers.length === 0 ? "Fügen Sie Ihren ersten Kunden hinzu, um Aufträge planen zu können." : "Prüfen Sie Ihre Suche oder setzen Sie sie zurück."} action={state.customers.length === 0
-          ? <Button type="button" onClick={openNewCustomer}><Plus className="mr-2 h-4 w-4" /> Ersten Kunden hinzufügen</Button>
-          : <Button type="button" variant="secondary" onClick={() => setQuery("")}>Suche zurücksetzen</Button>} />
+        <EmptyState title={state.customers.length === 0 ? "Noch keine Kunden" : "Keine passenden Kunden"} description={state.customers.length === 0 ? "Fügen Sie Ihren ersten Kunden hinzu, um Aufträge planen zu können." : "Prüfen Sie Ihre Suche oder setzen Sie sie zurück."} action={state.customers.length > 0
+          ? <Button type="button" variant="secondary" onClick={() => setQuery("")}>Suche zurücksetzen</Button>
+          : undefined} />
       ) : (
         <>
           <div className="space-y-3 lg:hidden">
